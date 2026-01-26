@@ -1030,11 +1030,11 @@ func TestCrossServiceAuthorization(t *testing.T) {
 - [ ] Integration examples repository
 
 ### Shared Auth Package (Prevents Drift)
-- [ ] Create `github.com/blackwell-systems/gcp-emulator-auth` module
-- [ ] Principal extractors (gRPC + HTTP)
-- [ ] Environment parsing (`IAM_MODE`, `IAM_EMULATOR_HOST`)
-- [ ] Minimal IAM client with timeout and modes
-- [ ] Error classification (connectivity vs config)
+- [x] Create `github.com/blackwell-systems/gcp-emulator-auth` module
+- [x] Principal extractors (gRPC + HTTP)
+- [x] Environment parsing (`IAM_MODE`, `IAM_HOST`)
+- [x] Minimal IAM client with timeout and modes
+- [x] Error classification (connectivity vs config)
 - [ ] Common test helpers
 
 **Why separate package:**
@@ -1052,18 +1052,27 @@ func TestCrossServiceAuthorization(t *testing.T) {
 - [ ] Docker Compose example
 
 ### KMS Emulator
-- [ ] Import `gcp-emulator-auth` package
-- [ ] Resource normalization functions
-- [ ] Permission mapping table
-- [ ] `IAM_MODE` support (`off`, `permissive`, `strict`)
-- [ ] Integration tests with IAM emulator
-- [ ] Docker Compose example
+- [x] Import `gcp-emulator-auth` package
+- [x] Resource normalization functions
+- [x] Permission mapping table
+- [x] `IAM_MODE` support (`off`, `permissive`, `strict`)
+- [x] Integration tests with IAM emulator
+- [x] Docker Compose example
+
+### Control Plane Repository
+- [x] Create `gcp-emulator-control-plane` repository
+- [x] Docker Compose orchestration (IAM + Secret Manager + KMS)
+- [x] Single policy.yaml configuration
+- [x] Policy packs (secretmanager.yaml, kms.yaml, ci.yaml)
+- [x] Curl examples for testing
+- [x] Integration contract documentation
+- [ ] Go client examples
 
 ### Documentation
 - [x] Integration contract specification
 - [ ] End-to-end tutorial
 - [ ] Migration guide for existing deployments
-- [ ] Policy examples repository
+- [x] Policy packs (secretmanager, kms, ci)
 - [ ] Blog post: "Building a coherent GCP emulator mesh"
 
 ---
