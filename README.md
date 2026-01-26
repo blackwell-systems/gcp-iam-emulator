@@ -5,7 +5,7 @@
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-> The reference local implementation of the Google Cloud IAM API for development and CI
+> A reference local IAM policy engine, compatible with Google Cloud IAM semantics
 
 A production-grade IAM policy engine providing complete, behaviorally-accurate permission evaluation for local development and CI/CD. The missing auth layer for GCP emulators. No GCP credentials or network connectivity required.
 
@@ -53,6 +53,26 @@ server --config policy.yaml --watch
 ```
 
 **Result:** Local IAM decisions matching your policy, offline testing of authorization logic, CI-ready without GCP credentials.
+
+## What This Is (and Isn't)
+
+**GCP IAM Emulator is a deterministic, local policy engine for testing cloud authorization logic.**
+
+It is not a full reimplementation of Google Cloud IAM, and it does not attempt perfect fidelity.
+
+Instead, it provides:
+
+- **Behaviorally accurate permission evaluation** - Test "who can access what" locally
+- **Strict, offline policy modeling** - No GCP credentials or network required
+- **Composable auth layer** - Foundation for local GCP emulator ecosystems
+
+**Users define their own permission universe. The emulator enforces it.**
+
+**Goal:** Catch authorization bugs in CI (missing permissions, wrong roles, misconfigured principals).
+
+**Non-goal:** Mirror every edge case of Google IAM. If your test passes locally but fails in real GCP, refine your custom role definitions.
+
+**The built-in roles are intentionally small. The emulator is infinite via custom roles.**
 
 ## Features
 
@@ -587,14 +607,6 @@ server --config policy.yaml --allow-unknown-roles
 ## Architecture
 
 **In-memory policy storage** with thread-safe concurrent access. **Simple permission engine** mapping roles to permissions. **Resource-level policies** (no organization/folder hierarchy in MVP). **No token minting** (pure policy evaluation only).
-
-## Design Philosophy
-
-**This emulator is not a full IAM reimplementation.** It provides deterministic, CI-friendly policy evaluation. Custom roles let you model the subset of permissions your tests require, without hardcoding the entire GCP permission universe.
-
-**Goal:** Catch authorization bugs locally (missing permissions, wrong roles, misconfigured principals) without requiring GCP credentials or network access.
-
-**Non-goal:** Perfect fidelity with every GCP IAM edge case. If your test passes here but fails in real GCP, that's a signal to refine your custom role definitions.
 
 ## Roadmap
 
