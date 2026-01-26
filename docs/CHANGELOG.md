@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Feature Comparison Matrix
+
+| Feature | v0.1.0 | v0.2.0 | v0.3.0 | v0.4.0 | v1.0.0 (planned) |
+|---------|--------|--------|--------|--------|------------------|
+| SetIamPolicy | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GetIamPolicy | ✓ | ✓ | ✓ | ✓ | ✓ |
+| TestIamPermissions | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Principal injection | - | ✓ | ✓ | ✓ | ✓ |
+| Policy inheritance | - | ✓ | ✓ | ✓ | ✓ |
+| Config file | - | ✓ | ✓ | ✓ | ✓ |
+| Trace mode | - | ✓ | ✓ | ✓ | ✓ |
+| Hot reload | - | ✓ | ✓ | ✓ | ✓ |
+| REST API | - | - | ✓ | ✓ | ✓ |
+| Conditional bindings | - | - | ✓ | ✓ | ✓ |
+| Groups support | - | - | ✓ | ✓ | ✓ |
+| Policy Schema v3 | - | - | ✓ | ✓ | ✓ |
+| Enhanced trace mode | - | - | ✓ | ✓ | ✓ |
+| Custom roles | - | - | - | ✓ | ✓ |
+| Strict mode | - | - | - | ✓ | ✓ |
+| Metrics/observability | - | - | - | - | ✓ |
+| Emulator integration | - | - | - | - | ✓ |
+
+---
+
 ## [Unreleased]
 
 ### Planned for v1.0.0 - Production Ready
@@ -12,6 +36,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Metrics/Observability**: Prometheus metrics, OpenTelemetry tracing
 - **Advanced CEL**: Full CEL expression support
 - **Performance**: Benchmarking and optimization
+
+### Deferred Features
+
+**Role Packs (future):**
+- Optional import packs (e.g., `packs/pubsub.yaml`, `packs/bigquery.yaml`)
+- Community-maintained, not built-in
+- Users import only what they need
+
+**Workload Identity (future):**
+- `principalSet://` member format
+- Federated identity patterns
+- Kubernetes workload identity
+
+**Out of Scope:**
+- Service account management (no CRUD, no keys, no token minting)
+- Organization/folder hierarchy (project is root)
+- Audit logging enforcement (auditConfigs accepted but not enforced)
+- Large built-in permission database (define what you need via custom roles)
+
+---
+
+## [0.4.0] - 2026-01-26
+
+### Added - Sustainable Extensibility
+
+**Custom Roles System:**
+- Define custom role-to-permission mappings in YAML
+- Support for ANY GCP service (BigQuery, Pub/Sub, Storage, etc.)
+- Override built-in roles with custom definitions
+- Thread-safe loading and storage
+- Extensible without modifying emulator code
+
+**Strict Mode (Default):**
+- Unknown roles are DENIED by default
+- Forces explicit role definitions
+- Prevents overly permissive tests
+- Catches misconfigurations early
+
+**Compat Mode (Opt-in):**
+- `--allow-unknown-roles` flag enables wildcard matching
+- Unknown roles match by service prefix
+- Example: `roles/secretmanager.customRole` grants `secretmanager.*`
+- Less strict, useful for migration scenarios
+
+**Decision Order:**
+1. Custom roles (highest priority)
+2. Built-in roles (bootstrap set)
+3. Wildcard match (only in compat mode)
+4. Deny (strict mode default)
+
+**Documentation:**
+- Updated README with custom roles section
+- Added "What This Is (and Isn't)" identity section
+- Repositioned as reference policy engine (not GCP IAM clone)
+- Clarified sustainable strategy (small built-in core)
+- Comprehensive custom roles examples
+
+**Test Coverage:**
+- Custom roles tests (basic usage, override built-in, multiple permissions)
+- Strict mode tests (unknown roles denied, custom/built-in still work)
+- Compat mode tests (wildcard matching, service prefix validation)
+
+### Technical Details
+- Custom roles stored in thread-safe map
+- Decision order: custom → built-in → wildcard → deny
+- Wildcard matching: service prefix extraction from permission
+- Bootstrap set intentionally kept small (10 roles, 26 permissions)
 
 ## [0.3.0] - 2026-01-26
 

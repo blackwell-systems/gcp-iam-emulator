@@ -1,216 +1,106 @@
 # Features
 
-This document tracks all implemented features in the GCP IAM Emulator.
+## The Core Idea
 
-## Core IAM Policy API (v0.1.0)
+**GCP IAM Emulator is a deterministic, offline IAM policy engine for local dev + CI.**
 
-**Status:** ✓ Complete
+- The built-in roles are **bootstrap only**.
+- Your test environment defines the *permission universe* via **custom roles in YAML**.
+- **Strict mode (default)** denies unknown roles to prevent accidentally-permissive tests.
+- **Compat mode** (`--allow-unknown-roles`) exists for migration (wildcard/prefix fallback).
 
-### SetIamPolicy
-- Set IAM policy on any resource path
-- Accepts standard `google.iam.v1.Policy` protobuf
-- Thread-safe with concurrent access
-- In-memory storage (ephemeral)
+If you need more services, **you don't wait on this repo** - you define the roles you need and the emulator enforces them.
 
-### GetIamPolicy
-- Retrieve IAM policy for a resource
-- Returns empty policy if not found (no errors)
-- Thread-safe read access
+---
 
-### TestIamPermissions
-- Check which permissions are granted
-- Accepts list of permissions to test
-- Returns subset of allowed permissions
-- Foundation for all authorization decisions
+## What You Get
 
-## Principal Authentication (v0.2.0)
+### Core IAM Policy API
 
-**Status:** ✓ Complete
+Complete implementation of the Google Cloud IAM Policy API:
 
-### gRPC Metadata Injection
-- Extracts principal from `x-emulator-principal` metadata header
-- Supports `user:email@example.com` format
-- Supports `serviceAccount:name@project.iam.gserviceaccount.com` format
-- No principal provided = backward compatible (permission check only)
+- **SetIamPolicy** - Set IAM policy on any resource path
+- **GetIamPolicy** - Retrieve IAM policy for a resource
+- **TestIamPermissions** - Check which permissions are granted
 
-### Principal Matching
-- Exact string match: `user:alice@example.com` matches binding member `user:alice@example.com`
-- Wildcard support: `allUsers` matches any principal
-- Wildcard support: `allAuthenticatedUsers` matches any principal
-- Case-sensitive matching
+Works with official GCP client libraries via gRPC and REST.
 
-### Backward Compatibility
-- No principal provided: checks if ANY binding grants permission (v0.1.0 behavior)
-- Principal provided: checks if principal is in binding members (v0.2.0 behavior)
+### Custom Roles
 
-## Policy Inheritance (v0.2.0)
+Define your own role-to-permission mappings for any GCP service:
 
-**Status:** ✓ Complete
-
-### Resource Hierarchy Resolution
-- Walks resource path hierarchy: `projects/p/locations/l/keyRings/k/cryptoKeys/ck` → `projects/p/locations/l/keyRings/k` → `projects/p/locations/l` → `projects/p`
-- First policy match wins (resource-level overrides parent)
-- Project-level policies inherited by all child resources
-- No organization or folder hierarchy (project is root)
-
-### Examples
-```
-Policy on: projects/test
-Resource:   projects/test/secrets/db-password
-Result:     Inherits project policy
-
-Policy on: projects/test/secrets/db-password
-Resource:   projects/test/secrets/db-password
-Result:     Uses resource policy (overrides project)
-```
-
-## Configuration Management (v0.2.0)
-
-**Status:** ✓ Complete
-
-### YAML Config File
-- Load policies from YAML at startup
-- `--config policy.yaml` flag
-- Projects → bindings structure
-- Optional resource-level overrides
-
-### Config Format
 ```yaml
-projects:
-  project-id:
-    bindings:
-      - role: roles/owner
-        members:
-          - user:admin@example.com
-    resources:
-      secrets/db-password:
-        bindings:
-          - role: roles/secretmanager.secretAccessor
-            members:
-              - serviceAccount:app@project.iam.gserviceaccount.com
+roles:
+  roles/custom.dataReader:
+    permissions:
+      - bigquery.datasets.get
+      - bigquery.tables.list
+      
+  roles/custom.pubsubPublisher:
+    permissions:
+      - pubsub.topics.publish
 ```
 
-### Config Validation
-- YAML parsing errors reported at startup
-- Invalid structure fails fast
-- Example file: `policy.yaml.example`
+- Override built-in roles with custom definitions
+- Support for ANY GCP service (BigQuery, Pub/Sub, Storage, etc.)
+- Extensible without modifying emulator code
 
-## Trace Mode (v0.2.0)
+### Strict Mode (Default)
 
-**Status:** ✓ Complete
+Unknown roles are denied to catch misconfigurations:
 
-### Decision Logging
-- `--trace` flag enables authz decision logging
-- Uses Go `log/slog` structured logging
-- Logs every permission check (ALLOW or DENY)
-
-### Log Fields
-- `decision`: "ALLOW" or "DENY"
-- `principal`: who made the request
-- `resource`: what resource was accessed
-- `permission`: what permission was checked
-- `reason`: why decision was made
-
-### Example Output
-```
-level=INFO msg="authz decision" decision=ALLOW principal=user:alice@example.com resource=projects/test/secrets/db-password permission=secretmanager.versions.access reason="matched binding: role=roles/secretmanager.secretAccessor member=user:alice@example.com"
-
-level=INFO msg="authz decision" decision=DENY principal=user:bob@example.com resource=projects/test/secrets/db-password permission=secretmanager.secrets.delete reason="no matching binding found for principal"
+```bash
+server --config policy.yaml
 ```
 
-### Use Cases
-- Debug "why was this denied?" questions
-- Understand policy evaluation flow
-- Audit authz decisions locally
+- Forces explicit role definitions
+- Prevents overly permissive tests
+- Tests fail if you use undefined roles
 
-## Enhanced Trace Mode (v0.3.0)
+### Compat Mode (Opt-in)
 
-**Status:** ✓ Complete
+Wildcard matching for migration scenarios:
 
-### JSON Output
-- `--trace-output <file>` writes JSON traces to file
-- Structured JSON format with slog
-- Duration metrics included
-
-### Verbose Logging
-- `--explain` flag for detailed evaluation
-- Shows condition evaluation results
-- Logs checked bindings
-
-### JSON Format
-```json
-{
-  "time":"2026-01-26T10:30:15Z",
-  "level":"INFO",
-  "msg":"permission_check",
-  "resource":"projects/test/secrets/api-key",
-  "principal":"serviceAccount:ci@test.iam.gserviceaccount.com",
-  "allowed_permissions":["secretmanager.versions.access"],
-  "duration_ms":2,
-  "timestamp":"2026-01-26T10:30:15Z"
-}
+```bash
+server --config policy.yaml --allow-unknown-roles
 ```
 
-## Conditional Bindings (v0.3.0)
+- Unknown roles match by service prefix
+- Example: `roles/secretmanager.customRole` grants `secretmanager.*`
+- Less strict, useful when migrating existing tests
 
-**Status:** ✓ Complete
+**Decision order:** Custom roles → Built-in roles → Wildcard (compat only) → Deny
 
-### CEL Expression Support
+### Conditional Bindings
+
+Restrict access with CEL expressions:
+
+```yaml
+bindings:
+  - role: roles/secretmanager.secretAccessor
+    members:
+      - serviceAccount:ci@test.iam.gserviceaccount.com
+    condition:
+      expression: 'resource.name.startsWith("projects/test/secrets/prod-")'
+      title: "Production secrets only"
+```
+
+Supported conditions:
 - `resource.name.startsWith("prefix")` - Resource name prefix matching
 - `resource.type == "SECRET"` - Resource type equality
 - `request.time < timestamp("2026-12-31T23:59:59Z")` - Time-based access
 
-### Policy Schema v3
-- `etag` field - SHA256-based optimistic concurrency control
-- `version` field - Auto-determined (1=basic, 3=conditions)
-- `auditConfigs` field - Audit logging configuration
-- `bindings[].condition` - CEL expression per binding
+### Groups Support
 
-### Example
-```yaml
-projects:
-  test-project:
-    bindings:
-      - role: roles/secretmanager.secretAccessor
-        members:
-          - serviceAccount:ci@test.iam.gserviceaccount.com
-        condition:
-          expression: 'resource.name.startsWith("projects/test-project/secrets/prod-")'
-          title: "Production secrets only"
-```
+Define reusable principal collections:
 
-### CEL Evaluator
-- Basic string parsing (no full CEL dependency)
-- Covers 80% of real-world use cases
-- Integrated into permission evaluation flow
-- Comprehensive test coverage
-
-## Groups Support (v0.3.0)
-
-**Status:** ✓ Complete
-
-### Group Definition
-- YAML `groups:` section at root level
-- Reusable principal collections
-- Reduces duplication in bindings
-
-### Nested Groups
-- 1 level of nesting supported
-- `group:engineers` can contain `group:contractors`
-- Prevents infinite recursion
-
-### Example
 ```yaml
 groups:
   developers:
     members:
       - user:alice@example.com
       - user:bob@example.com
-  
-  operators:
-    members:
-      - user:ops@example.com
-      - group:oncall  # Nested group
+      - group:oncall  # Nested groups (1 level)
 
 projects:
   test-project:
@@ -220,286 +110,212 @@ projects:
           - group:developers
 ```
 
-### Group Expansion
-- Automatic expansion in `principalMatches()`
-- Thread-safe access to group definitions
-- Hot reload support (with --watch)
+### Policy Schema v3
 
-## REST API (v0.3.0)
+Full support for IAM Policy v3 features:
 
-**Status:** ✓ Complete
+- **etag** - Optimistic concurrency control (SHA256-based)
+- **version** - Policy format version (1=basic, 3=conditions)
+- **auditConfigs** - Audit logging configuration
+- **bindings[].condition** - Conditional role bindings
 
-### HTTP Gateway
-- `--http-port <port>` enables REST API
-- JSON request/response marshaling
-- gRPC-to-HTTP error code mapping
+### REST API
 
-### Supported Operations
-- POST `/v1/{resource}:setIamPolicy` - Set IAM policy
-- GET/POST `/v1/{resource}:getIamPolicy` - Get IAM policy
-- POST `/v1/{resource}:testIamPermissions` - Test permissions
+HTTP/JSON gateway for all IAM operations:
 
-### Principal Injection
-- `X-Emulator-Principal` HTTP header
-- Same format as gRPC metadata
-
-### Example
 ```bash
-curl -X POST http://localhost:8081/v1/projects/test-project:setIamPolicy \
-  -H "Content-Type: application/json" \
-  -d '{"policy": {"bindings": [{"role": "roles/viewer", "members": ["user:dev@example.com"]}]}}'
+server --config policy.yaml --http-port 8081
+
+curl -X POST http://localhost:8081/v1/projects/test:testIamPermissions \
+  -H "X-Emulator-Principal: serviceAccount:ci@test.iam.gserviceaccount.com" \
+  -d '{"permissions": ["secretmanager.versions.access"]}'
 ```
 
-### Error Responses
-- Standard HTTP status codes (400, 404, 500, etc.)
-- JSON error format with gRPC code + message
+### Principal Authentication
 
-## Custom Roles (v0.4.0)
+Inject identity via gRPC metadata or HTTP headers:
 
-**Status:** ✓ Complete
+- **gRPC:** `x-emulator-principal` metadata
+- **HTTP:** `X-Emulator-Principal` header
 
-### Extensible Role System
-- Define custom role-to-permission mappings in YAML
-- Support for ANY GCP service (BigQuery, Pub/Sub, Storage, etc.)
-- Override built-in roles with custom definitions
-- Thread-safe loading and storage
+Supported formats:
+- `user:email@example.com`
+- `serviceAccount:name@project.iam.gserviceaccount.com`
+- `group:group-name`
+- `allUsers`
+- `allAuthenticatedUsers`
 
-### Example
+### Policy Inheritance
+
+Resource hierarchy resolution:
+
+```
+Policy on: projects/test
+Resource:  projects/test/secrets/db-password
+Result:    Inherits project policy
+
+Policy on: projects/test/secrets/db-password
+Resource:  projects/test/secrets/db-password
+Result:    Uses resource policy (overrides project)
+```
+
+### Trace Mode
+
+Debug authorization decisions:
+
+```bash
+# Basic trace
+server --config policy.yaml --trace
+
+# Verbose trace with JSON output
+server --config policy.yaml --explain --trace-output trace.json
+```
+
+Logs every permission check with:
+- Decision (ALLOW/DENY)
+- Principal
+- Resource
+- Permission
+- Reason
+- Duration metrics
+
+### Configuration Management
+
+Load policies from YAML:
+
 ```yaml
-roles:
-  roles/custom.dataReader:
-    permissions:
-      - bigquery.datasets.get
-      - bigquery.tables.list
-      - bigquery.tables.getData
-  
-  roles/custom.pubsubPublisher:
-    permissions:
-      - pubsub.topics.publish
-      - pubsub.topics.get
+projects:
+  test-project:
+    bindings:
+      - role: roles/owner
+        members:
+          - user:admin@example.com
+    resources:
+      secrets/db-password:
+        bindings:
+          - role: roles/secretmanager.secretAccessor
+            members:
+              - serviceAccount:app@test.iam.gserviceaccount.com
 ```
 
-### Strict Mode (Default)
-- Unknown roles are DENIED
-- Prevents overly permissive tests
-- Catches misconfigurations early
-- Forces explicit role definitions
+### Hot Reload
 
-### Compat Mode (Opt-in)
-- `--allow-unknown-roles` flag enables wildcard matching
-- Unknown roles match by service prefix
-- Example: `roles/secretmanager.customRole` grants `secretmanager.*`
-- Less strict, useful for migration scenarios
+Watch config file for changes:
 
-### Decision Order
-1. Custom roles (highest priority)
-2. Built-in roles (bootstrap set)
-3. Wildcard match (only in compat mode)
-4. Deny (strict mode default)
+```bash
+server --config policy.yaml --watch
+```
 
-## Built-in Roles (Bootstrap Only)
+Updates policies without restart.
 
-**Status:** ✓ Complete (intentionally small)
+### Built-in Roles (Bootstrap Set)
 
-### Primitive Roles
-- `roles/owner`: Full access to all resources
-- `roles/editor`: Read/write access (no IAM management)
-- `roles/viewer`: Read-only access
+**10 built-in roles, 26 permissions** - intentionally small:
 
-### Secret Manager Roles
-- `roles/secretmanager.admin`: Full secret management
-- `roles/secretmanager.secretAccessor`: Read secret values only
-- `roles/secretmanager.secretVersionManager`: Manage versions
+**Primitive roles:**
+- `roles/owner` - Full access
+- `roles/editor` - Read/write (no IAM)
+- `roles/viewer` - Read-only
 
-### KMS Roles
-- `roles/cloudkms.admin`: Full KMS management
-- `roles/cloudkms.cryptoKeyEncrypterDecrypter`: Encrypt/decrypt only
-- `roles/cloudkms.viewer`: Read-only KMS access
+**Secret Manager roles:**
+- `roles/secretmanager.admin`
+- `roles/secretmanager.secretAccessor`
+- `roles/secretmanager.secretVersionManager`
 
-**Total:** 10 built-in roles, 26 permissions
+**KMS roles:**
+- `roles/cloudkms.admin`
+- `roles/cloudkms.cryptoKeyEncrypterDecrypter`
+- `roles/cloudkms.viewer`
 
-**Strategy:** Small built-in set for bootstrap. Users define what they need via custom roles.
+**Strategy:** Small built-in core for immediate use. Define custom roles for production tests.
 
-## CLI & Launch (v0.2.0)
+---
 
-**Status:** ✓ Complete
+## Why This Matters
 
-### Command Line Flags
-- `--port <int>`: Port to listen on (default: 8080)
-- `--http-port <int>`: HTTP REST port (0 = disabled)
-- `--config <path>`: Path to policy YAML file
-- `--trace`: Enable trace mode (decision logging)
-- `--explain`: Enable verbose trace output (implies --trace)
-- `--trace-output <path>`: Output file for JSON trace logs
-- `--watch`: Watch config file for changes and hot reload
-- `--allow-unknown-roles`: Enable wildcard role matching (compat mode)
+**Offline, deterministic authorization testing:**
+- No GCP credentials required
+- No network connectivity required
+- Instant feedback in CI/CD
 
-### Launch Examples
+**Catch bugs before production:**
+- Missing permissions
+- Wrong roles
+- Misconfigured principals
+- Overly permissive policies
+
+**Composable infrastructure:**
+- Foundation for GCP emulator stacks
+- Works with Secret Manager emulator
+- Works with KMS emulator
+- Standard gRPC + REST APIs
+
+**Sustainable and extensible:**
+- Small emulator core (never bloats)
+- Users define their own permission universe
+- No maintenance hell from hardcoded permission databases
+- Strict mode prevents configuration drift
+
+---
+
+## CLI Reference
+
+```bash
+server [flags]
+
+Flags:
+  --port <int>              gRPC port (default: 8080)
+  --http-port <int>         HTTP REST port (0 = disabled)
+  --config <path>           Policy YAML file
+  --trace                   Enable trace mode (decision logging)
+  --explain                 Enable verbose trace output (implies --trace)
+  --trace-output <path>     Output file for JSON trace logs
+  --watch                   Watch config file for changes and hot reload
+  --allow-unknown-roles     Enable wildcard role matching (compat mode)
+```
+
+**Examples:**
+
 ```bash
 # Basic server
-server --port 8080
+server
 
 # With policy config
 server --config policy.yaml
 
-# With trace mode
+# Strict mode (default) - deny unknown roles
 server --config policy.yaml --trace
 
+# Compat mode - allow wildcard matching
+server --config policy.yaml --allow-unknown-roles
+
 # Full CI setup
-server --config ci-policies.yaml --trace --port 9090
+server --config ci-policies.yaml --trace --http-port 8081 --watch
 ```
 
-### Docker Support
+---
+
+## Docker Support
+
 ```bash
-# Build
-docker build -t gcp-iam-emulator:latest .
-
 # Run with config
-docker run -p 8080:8080 -v $(pwd)/policy.yaml:/policy.yaml gcp-iam-emulator --config /policy.yaml
+docker run -p 8080:8080 -v $(pwd)/policy.yaml:/policy.yaml \
+  ghcr.io/blackwell-systems/gcp-iam-emulator:latest --config /policy.yaml
 
-# Run with trace
-docker run -p 8080:8080 gcp-iam-emulator --trace
+# Run with trace mode
+docker run -p 8080:8080 \
+  ghcr.io/blackwell-systems/gcp-iam-emulator:latest --trace
 ```
 
-## gRPC Server (v0.1.0)
-
-**Status:** ✓ Complete
-
-### Protocol Support
-- gRPC only (no REST yet - planned for v0.3.0)
-- Server reflection enabled
-- Standard Google IAM protobuf definitions
-- Port 8080 default (configurable)
-
-### Client Compatibility
-- Works with official `cloud.google.com/go/iam/apiv1` clients
-- Compatible with `google.golang.org/genproto/googleapis/iam/v1`
-- Standard gRPC status codes
-
-## Storage & Performance (v0.1.0)
-
-**Status:** ✓ Complete
-
-### In-Memory Storage
-- Thread-safe with `sync.RWMutex`
-- No persistence (ephemeral, resets on restart)
-- Fast policy lookups
-- Concurrent read/write support
-
-### Performance Characteristics
-- Sub-millisecond policy evaluation
-- Scales to thousands of policies
-- No external dependencies
-- Suitable for CI/CD workloads
-
-## Testing & Quality (v0.2.0)
-
-**Status:** ✓ Complete
-
-### Test Coverage
-- Storage: 59.2% coverage
-- Server: 71.4% coverage
-- Config: 100% coverage (2/2 tests)
-- Inheritance: 100% coverage (4/4 tests)
-
-### Test Categories
-- Unit tests: storage, server, config
-- Integration tests: inheritance, principal matching
-- Backward compatibility tests
-
-### CI/CD
-- GitHub Actions workflows
-- Test + lint + build on PR/push
-- Multi-platform Docker builds
-- Automated releases
-
 ---
 
-## Not Yet Implemented
+## What's Not Included
 
-### Deferred to Future Releases
+**By design:**
+- No organization/folder hierarchy (project is root)
+- No service account management (no CRUD, no keys)
+- No token minting (pure policy evaluation only)
+- No audit logging enforcement (auditConfigs accepted but not enforced)
+- No large built-in permission database (define what you need via custom roles)
 
-**Hot Reload (v0.2.0 scope, deferred):**
-- `--watch` flag for config file reloading
-- SIGHUP signal handling
-- Dynamic policy updates without restart
-
-**Workload Identity (future):**
-- `principalSet://` member format
-- Federated identity patterns
-- Kubernetes workload identity
-
-**Role Packs (future):**
-- Optional import packs (e.g., `packs/pubsub.yaml`, `packs/bigquery.yaml`)
-- Community-maintained, not built-in
-- Users import only what they need
-
-**Service Account Management (out of scope):**
-- No service account CRUD
-- No key generation
-- No token minting
-
-**Organization/Folder Hierarchy (out of scope):**
-- No org-level policies
-- No folder-level policies
-- Project is root of hierarchy
-
----
-
-## Feature Comparison Matrix
-
-| Feature | v0.1.0 | v0.2.0 | v0.3.0 | v0.4.0 | v1.0.0 (planned) |
-|---------|--------|--------|--------|--------|------------------|
-| SetIamPolicy | ✓ | ✓ | ✓ | ✓ | ✓ |
-| GetIamPolicy | ✓ | ✓ | ✓ | ✓ | ✓ |
-| TestIamPermissions | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Principal injection | - | ✓ | ✓ | ✓ | ✓ |
-| Policy inheritance | - | ✓ | ✓ | ✓ | ✓ |
-| Config file | - | ✓ | ✓ | ✓ | ✓ |
-| Trace mode | - | ✓ | ✓ | ✓ | ✓ |
-| Hot reload | - | ✓ | ✓ | ✓ | ✓ |
-| REST API | - | - | ✓ | ✓ | ✓ |
-| Conditional bindings | - | - | ✓ | ✓ | ✓ |
-| Groups support | - | - | ✓ | ✓ | ✓ |
-| Policy Schema v3 | - | - | ✓ | ✓ | ✓ |
-| Enhanced trace mode | - | - | ✓ | ✓ | ✓ |
-| Custom roles | - | - | - | ✓ | ✓ |
-| Strict mode | - | - | - | ✓ | ✓ |
-| Metrics/observability | - | - | - | - | ✓ |
-| Emulator integration | - | - | - | - | ✓ |
-
----
-
-## Version History
-
-### v0.4.0 (2026-01-26)
-- Custom roles system (extensible, any GCP service)
-- Strict mode by default (unknown roles denied)
-- Compat mode opt-in (--allow-unknown-roles for wildcard matching)
-- Sustainable permission strategy (small built-in core)
-- Comprehensive tests for strict/compat modes
-
-### v0.3.0 (2026-01-26)
-- Conditional bindings with CEL expression support
-- Policy Schema v3 (etag, version, auditConfigs)
-- Groups support with nested membership
-- REST API gateway (HTTP/JSON)
-- Enhanced trace mode (JSON output, --explain, duration metrics)
-- Comprehensive v0.3.0 documentation
-
-### v0.2.0 (2026-01-26)
-- Principal injection via gRPC metadata
-- Policy inheritance (resource hierarchy)
-- YAML config file loader
-- Hot reload with --watch flag
-- Trace mode for authz debugging
-- Enhanced CLI flags
-- Comprehensive test suite
-
-### v0.1.0 (2026-01-26)
-- Core IAM Policy API (Set/Get/TestIamPermissions)
-- 7 predefined roles (primitive + Secret Manager + KMS)
-- 8 permission mappings
-- Thread-safe in-memory storage
-- gRPC server with reflection
-- Docker support
+**For complete details, see [CHANGELOG.md](CHANGELOG.md) and [docs/ARCHITECTURE.md](ARCHITECTURE.md).**
