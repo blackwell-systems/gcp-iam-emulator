@@ -1,0 +1,23 @@
+linters-settings:
+  staticcheck:
+    checks:
+      - "all"
+      - "-SA1019" # Ignore deprecation warnings for google.golang.org/genproto/googleapis/iam/v1
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+issues:
+  exclude-rules:
+    # Ignore deprecation warnings for genproto IAM package (standard package)
+    - path: '.*'
+      linters:
+        - staticcheck
+      text: 'SA1019.*google.golang.org/genproto/googleapis/iam/v1'
