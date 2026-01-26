@@ -12,6 +12,27 @@ The IAM Emulator becomes the keystone of a coherent local GCP emulator mesh wher
 - Conditional access works across all services
 - Integration tests mirror production behavior
 
+## Non-Breaking Integration
+
+**IAM integration is completely opt-in and backwards compatible.**
+
+Existing emulators currently have no authentication/authorization - all requests succeed. This behavior is preserved by default when IAM integration is added.
+
+**Key principles:**
+- `IAM_ENABLED=false` by default (current behavior maintained)
+- Existing deployments continue working without changes
+- New users opt-in by setting `IAM_ENABLED=true`
+- No code changes required for existing users
+- Clear migration path for gradual adoption
+
+**Versioning:**
+- Secret Manager v1.x: No IAM integration
+- Secret Manager v2.0+: IAM integration available (opt-in)
+- KMS v1.x: No IAM integration  
+- KMS v2.0+: IAM integration available (opt-in)
+
+Major version bump signals new optional feature, but existing behavior is default.
+
 ---
 
 ## Integration Contract
@@ -170,27 +191,62 @@ func (c *IAMClient) CheckPermission(
 }
 ```
 
-#### Integration Pattern
+#### Integration Pattern (Opt-in, Non-Breaking)
 ```go
 // In each RPC handler:
 func (s *Server) GetSecret(ctx context.Context, req *pb.GetSecretRequest) (*pb.Secret, error) {
-    // 1. Extract principal from incoming request
-    principal := extractPrincipal(ctx)
-    
-    // 2. Build resource name
-    resource := req.Name // e.g., "projects/test/secrets/db-password"
-    
-    // 3. Check permission
-    allowed, err := s.iamClient.CheckPermission(ctx, principal, resource, "secretmanager.secrets.get")
-    if err != nil {
-        return nil, status.Error(codes.Internal, "IAM check failed")
+    // 1. Check if IAM is enabled (default: false)
+    if s.iamEnabled {
+        // 2. Extract principal from incoming request
+        principal := extractPrincipal(ctx)
+        
+        // 3. Build resource name
+        resource := req.Name // e.g., "projects/test/secrets/db-password"
+        
+        // 4. Check permission
+        allowed, err := s.iamClient.CheckPermission(ctx, principal, resource, "secretmanager.secrets.get")
+        if err != nil {
+            return nil, status.Error(codes.Internal, "IAM check failed")
+        }
+        if !allowed {
+            return nil, status.Error(codes.PermissionDenied, "Permission denied")
+        }
     }
-    if !allowed {
-        return nil, status.Error(codes.PermissionDenied, "Permission denied")
-    }
     
-    // 4. Proceed with operation
+    // 5. Proceed with operation (works with or without IAM)
     return s.storage.GetSecret(req.Name)
+}
+```
+
+**Server initialization:**
+```go
+type Server struct {
+    storage    *storage.Storage
+    iamEnabled bool
+    iamClient  *IAMClient
+}
+
+func NewServer() (*Server, error) {
+    s := &Server{
+        storage:    storage.NewStorage(),
+        iamEnabled: os.Getenv("IAM_ENABLED") == "true",
+    }
+    
+    // Only connect to IAM if enabled
+    if s.iamEnabled {
+        iamHost := os.Getenv("IAM_EMULATOR_HOST")
+        if iamHost == "" {
+            iamHost = "localhost:8080"
+        }
+        
+        client, err := NewIAMClient(iamHost)
+        if err != nil {
+            return nil, fmt.Errorf("failed to connect to IAM emulator: %w", err)
+        }
+        s.iamClient = client
+    }
+    
+    return s, nil
 }
 ```
 
@@ -202,16 +258,32 @@ Standardized environment variables across all emulators:
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
+| `IAM_ENABLED` | Enable/disable IAM checks | `false` |
 | `IAM_EMULATOR_HOST` | IAM emulator gRPC endpoint | `localhost:8080` |
-| `IAM_ENABLED` | Enable/disable IAM checks | `true` |
 | `IAM_TRACE` | Enable IAM decision logging | `false` |
 
-**Disable for testing:**
+**Important: IAM integration is opt-in and non-breaking.**
+
+#### Default Behavior (IAM Disabled)
 ```bash
-IAM_ENABLED=false server
+# No IAM checks - all requests succeed (current behavior)
+server
 ```
 
-This allows emulators to run standalone without IAM for simple testing.
+This matches current emulator behavior where no authentication/authorization is enforced.
+
+#### Enable IAM Integration
+```bash
+# Enable IAM checks
+IAM_ENABLED=true IAM_EMULATOR_HOST=iam:8080 server
+```
+
+When `IAM_ENABLED=true`, the emulator will check permissions before each operation.
+
+**Migration path:**
+1. Existing users: no changes needed (IAM disabled by default)
+2. New users: opt-in by setting `IAM_ENABLED=true`
+3. Gradual adoption: enable IAM per environment (dev, staging, CI)
 
 ---
 
@@ -249,6 +321,7 @@ Complete working example:
 
 ```yaml
 services:
+  # IAM Emulator - authorization engine
   iam:
     image: ghcr.io/blackwell-systems/gcp-iam-emulator:latest
     ports:
@@ -257,25 +330,35 @@ services:
       - ./policy.yaml:/policy.yaml
     command: --config /policy.yaml --trace
   
+  # Secret Manager with IAM integration enabled
   secret-manager:
     image: ghcr.io/blackwell-systems/gcp-secret-manager-emulator:latest
     environment:
+      IAM_ENABLED: "true"              # Opt-in to IAM checks
       IAM_EMULATOR_HOST: iam:8080
-      IAM_ENABLED: "true"
     ports:
       - "9090:9090"
     depends_on:
       - iam
   
+  # KMS with IAM integration enabled
   kms:
     image: ghcr.io/blackwell-systems/gcp-kms-emulator:latest
     environment:
+      IAM_ENABLED: "true"              # Opt-in to IAM checks
       IAM_EMULATOR_HOST: iam:8080
-      IAM_ENABLED: "true"
     ports:
       - "9091:9090"
     depends_on:
       - iam
+  
+  # Example: Secret Manager without IAM (current behavior)
+  secret-manager-legacy:
+    image: ghcr.io/blackwell-systems/gcp-secret-manager-emulator:latest
+    # No IAM_ENABLED - defaults to false
+    # All requests succeed (backwards compatible)
+    ports:
+      - "9092:9090"
 ```
 
 ### Example Policy
