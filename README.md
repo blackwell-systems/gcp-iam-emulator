@@ -179,11 +179,23 @@ services:
 
 **Current scope:** Core IAM policy operations for testing emulator integrations
 
+## Project Status
+
+Extracted as the strategic "keystone" auth layer to enable complete GCP emulator ecosystem testing.
+
+## Disclaimer
+
+This project is not affiliated with, endorsed by, or sponsored by Google LLC or Google Cloud Platform. "Google Cloud", "IAM", and related trademarks are property of Google LLC. This is an independent open-source implementation for testing and development purposes.
+
 ## Maintained By
 
 Maintained by **Dayna Blackwell** — founder of Blackwell Systems, building reference infrastructure for cloud-native development.
 
-[GitHub](https://github.com/blackwell-systems) · [LinkedIn](https://linkedin.com/in/daynablackwell) · [Blog](https://blog.blackwell-systems.com)
+[GitHub](https://github.com/blackwell-systems) · [LinkedIn](https://linkedin.com/in/dayna-blackwell) · [Blog](https://blog.blackwell-systems.com)
+
+## Trademarks
+
+**Blackwell Systems™** and the **Blackwell Systems logo** are trademarks of Dayna Blackwell. You may use the name "Blackwell Systems" to refer to this project, but you may not use the name or logo in a way that suggests endorsement or official affiliation without prior written permission. See [BRAND.md](BRAND.md) for usage guidelines.
 
 ## Related Projects
 
@@ -192,4 +204,4 @@ Maintained by **Dayna Blackwell** — founder of Blackwell Systems, building ref
 
 ## License
 
-Apache 2.0 - See [LICENSE](LICENSE) for details.
+Apache License 2.0 - See [LICENSE](LICENSE) for details.
