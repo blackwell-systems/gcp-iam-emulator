@@ -1,0 +1,70 @@
+# Example policy configuration for GCP IAM Emulator
+# Load with: server --config policy.yaml
+
+projects:
+  test-project:
+    # Project-level bindings (inherited by all resources)
+    bindings:
+      - role: roles/owner
+        members:
+          - user:admin@example.com
+      
+      - role: roles/viewer
+        members:
+          - user:dev@example.com
+          - serviceAccount:readonly@test-project.iam.gserviceaccount.com
+      
+      - role: roles/secretmanager.secretAccessor
+        members:
+          - serviceAccount:ci@test-project.iam.gserviceaccount.com
+    
+    # Resource-specific overrides
+    resources:
+      secrets/db-password:
+        bindings:
+          - role: roles/secretmanager.secretAccessor
+            members:
+              - serviceAccount:app@test-project.iam.gserviceaccount.com
+      
+      secrets/api-key:
+        bindings:
+          - role: roles/secretmanager.admin
+            members:
+              - user:admin@example.com
+      
+      locations/global/keyRings/prod-keys/cryptoKeys/encryption-key:
+        bindings:
+          - role: roles/cloudkms.cryptoKeyEncrypterDecrypter
+            members:
+              - serviceAccount:app@test-project.iam.gserviceaccount.com
+
+  staging-project:
+    bindings:
+      - role: roles/editor
+        members:
+          - user:dev@example.com
+      
+      - role: roles/secretmanager.secretAccessor
+        members:
+          - allAuthenticatedUsers
+
+# Supported roles:
+# - roles/owner (all permissions)
+# - roles/editor (read/write, no IAM)
+# - roles/viewer (read-only)
+# - roles/secretmanager.admin (full Secret Manager)
+# - roles/secretmanager.secretAccessor (read secrets only)
+# - roles/cloudkms.admin (full KMS)
+# - roles/cloudkms.cryptoKeyEncrypterDecrypter (encrypt/decrypt only)
+
+# Supported member formats:
+# - user:email@example.com
+# - serviceAccount:name@project.iam.gserviceaccount.com
+# - allUsers
+# - allAuthenticatedUsers
+
+# Resource hierarchy resolution:
+# The emulator checks policies in this order:
+# 1. Exact resource match (e.g., projects/test/secrets/db-password)
+# 2. Parent resources (e.g., projects/test)
+# 3. First match wins

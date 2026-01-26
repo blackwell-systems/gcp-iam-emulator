@@ -96,10 +96,10 @@ func TestTestIamPermissions_SecretAccessor(t *testing.T) {
 		t.Fatalf("SetIamPolicy failed: %v", err)
 	}
 
-	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", []string{
+	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", "serviceAccount:ci@test.iam.gserviceaccount.com", []string{
 		"secretmanager.versions.access",
 		"secretmanager.secrets.delete",
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("TestIamPermissions failed: %v", err)
 	}
@@ -131,11 +131,11 @@ func TestTestIamPermissions_Owner(t *testing.T) {
 		t.Fatalf("SetIamPolicy failed: %v", err)
 	}
 
-	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", []string{
+	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", "user:admin@example.com", []string{
 		"secretmanager.versions.access",
 		"secretmanager.secrets.delete",
 		"cloudkms.cryptoKeys.encrypt",
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("TestIamPermissions failed: %v", err)
 	}
@@ -148,9 +148,9 @@ func TestTestIamPermissions_Owner(t *testing.T) {
 func TestTestIamPermissions_NoPolicy(t *testing.T) {
 	s := NewStorage()
 
-	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", []string{
+	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", "", []string{
 		"secretmanager.versions.access",
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("TestIamPermissions failed: %v", err)
 	}
@@ -178,11 +178,11 @@ func TestTestIamPermissions_KMS(t *testing.T) {
 		t.Fatalf("SetIamPolicy failed: %v", err)
 	}
 
-	allowed, err := s.TestIamPermissions("projects/test/locations/global/keyRings/ring1/cryptoKeys/key1", []string{
+	allowed, err := s.TestIamPermissions("projects/test/locations/global/keyRings/ring1/cryptoKeys/key1", "serviceAccount:app@test.iam.gserviceaccount.com", []string{
 		"cloudkms.cryptoKeys.encrypt",
 		"cloudkms.cryptoKeys.decrypt",
 		"cloudkms.cryptoKeyVersions.create",
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("TestIamPermissions failed: %v", err)
 	}
