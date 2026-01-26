@@ -1,6 +1,6 @@
 module github.com/blackwell-systems/gcp-iam-emulator
 
-go 1.25.5
+go 1.24
 
 require (
 	cloud.google.com/go/iam v1.5.3 // indirect
