@@ -55,7 +55,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	iampb.RegisterIAMPolicyServer(grpcServer, iamServer)
+	iampb.RegisterIAMPolicyServer(grpcServer, iamServer) //nolint:staticcheck // Using standard genproto package
 	reflection.Register(grpcServer)
 
 	log.Printf("Server listening at %s", lis.Addr())

@@ -100,7 +100,10 @@ func TestGetIamPolicy(t *testing.T) {
 		Resource: "projects/test/secrets/secret1",
 		Policy:   policy,
 	}
-	s.SetIamPolicy(ctx, setReq)
+	_, err := s.SetIamPolicy(ctx, setReq)
+	if err != nil {
+		t.Fatalf("SetIamPolicy failed: %v", err)
+	}
 
 	getReq := &iampb.GetIamPolicyRequest{
 		Resource: "projects/test/secrets/secret1",
@@ -157,7 +160,10 @@ func TestTestIamPermissions(t *testing.T) {
 		Resource: "projects/test/secrets/secret1",
 		Policy:   policy,
 	}
-	s.SetIamPolicy(ctx, setReq)
+	_, err := s.SetIamPolicy(ctx, setReq)
+	if err != nil {
+		t.Fatalf("SetIamPolicy failed: %v", err)
+	}
 
 	testReq := &iampb.TestIamPermissionsRequest{
 		Resource: "projects/test/secrets/secret1",

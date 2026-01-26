@@ -144,7 +144,10 @@ func TestNoPrincipalBackwardCompatibility(t *testing.T) {
 			},
 		},
 	}
-	s.SetIamPolicy("projects/test/secrets/secret1", policy)
+	_, err := s.SetIamPolicy("projects/test/secrets/secret1", policy)
+	if err != nil {
+		t.Fatalf("SetIamPolicy failed: %v", err)
+	}
 
 	allowed, err := s.TestIamPermissions("projects/test/secrets/secret1", "", []string{
 		"secretmanager.versions.access",

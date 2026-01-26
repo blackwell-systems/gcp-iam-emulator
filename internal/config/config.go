@@ -40,14 +40,14 @@ func LoadFromFile(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-func (c *Config) ToPolicies() map[string]*iampb.Policy {
-	policies := make(map[string]*iampb.Policy)
+func (c *Config) ToPolicies() map[string]*iampb.Policy { //nolint:staticcheck // Using standard genproto package
+	policies := make(map[string]*iampb.Policy) //nolint:staticcheck // Using standard genproto package
 
 	for projectID, projectCfg := range c.Projects {
 		projectResource := fmt.Sprintf("projects/%s", projectID)
 
 		if len(projectCfg.Bindings) > 0 {
-			policies[projectResource] = &iampb.Policy{
+			policies[projectResource] = &iampb.Policy{ //nolint:staticcheck // Using standard genproto package
 				Version:  1,
 				Bindings: bindingsToProto(projectCfg.Bindings),
 			}
@@ -55,7 +55,7 @@ func (c *Config) ToPolicies() map[string]*iampb.Policy {
 
 		for resourcePath, resourceCfg := range projectCfg.Resources {
 			fullResource := fmt.Sprintf("%s/%s", projectResource, resourcePath)
-			policies[fullResource] = &iampb.Policy{
+			policies[fullResource] = &iampb.Policy{ //nolint:staticcheck // Using standard genproto package
 				Version:  1,
 				Bindings: bindingsToProto(resourceCfg.Bindings),
 			}
@@ -65,10 +65,10 @@ func (c *Config) ToPolicies() map[string]*iampb.Policy {
 	return policies
 }
 
-func bindingsToProto(bindings []BindingConfig) []*iampb.Binding {
-	result := make([]*iampb.Binding, len(bindings))
+func bindingsToProto(bindings []BindingConfig) []*iampb.Binding { //nolint:staticcheck // Using standard genproto package
+	result := make([]*iampb.Binding, len(bindings)) //nolint:staticcheck // Using standard genproto package
 	for i, b := range bindings {
-		result[i] = &iampb.Binding{
+		result[i] = &iampb.Binding{ //nolint:staticcheck // Using standard genproto package
 			Role:    b.Role,
 			Members: b.Members,
 		}
