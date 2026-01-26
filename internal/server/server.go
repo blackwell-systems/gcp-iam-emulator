@@ -29,7 +29,7 @@ func (s *Server) SetTrace(trace bool) {
 	s.trace = trace
 }
 
-func (s *Server) LoadPolicies(policies map[string]*iampb.Policy) {
+func (s *Server) LoadPolicies(policies map[string]*iampb.Policy) { //nolint:staticcheck // Using standard genproto package
 	s.storage.LoadPolicies(policies)
 }
 
@@ -47,7 +47,7 @@ func (s *Server) extractPrincipal(ctx context.Context) string {
 	return principals[0]
 }
 
-func (s *Server) SetIamPolicy(ctx context.Context, req *iampb.SetIamPolicyRequest) (*iampb.Policy, error) {
+func (s *Server) SetIamPolicy(ctx context.Context, req *iampb.SetIamPolicyRequest) (*iampb.Policy, error) { //nolint:staticcheck // Using standard genproto package
 	if req.Resource == "" {
 		return nil, status.Error(codes.InvalidArgument, "resource is required")
 	}
@@ -67,7 +67,7 @@ func (s *Server) SetIamPolicy(ctx context.Context, req *iampb.SetIamPolicyReques
 	return policy, nil
 }
 
-func (s *Server) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iampb.Policy, error) {
+func (s *Server) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyRequest) (*iampb.Policy, error) { //nolint:staticcheck // Using standard genproto package
 	if req.Resource == "" {
 		return nil, status.Error(codes.InvalidArgument, "resource is required")
 	}
@@ -80,7 +80,7 @@ func (s *Server) GetIamPolicy(ctx context.Context, req *iampb.GetIamPolicyReques
 	return policy, nil
 }
 
-func (s *Server) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermissionsRequest) (*iampb.TestIamPermissionsResponse, error) {
+func (s *Server) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermissionsRequest) (*iampb.TestIamPermissionsResponse, error) { //nolint:staticcheck // Using standard genproto package
 	if req.Resource == "" {
 		return nil, status.Error(codes.InvalidArgument, "resource is required")
 	}
@@ -96,7 +96,7 @@ func (s *Server) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermi
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &iampb.TestIamPermissionsResponse{
+	return &iampb.TestIamPermissionsResponse{ //nolint:staticcheck // Using standard genproto package
 		Permissions: allowed,
 	}, nil
 }
