@@ -617,46 +617,38 @@ See [ROADMAP.md](docs/ROADMAP.md) for full details.
 
 ## API Parity with GCP IAM
 
-### What's Implemented (v0.2.0)
+### What's Implemented
 
 **Methods:**
-- ✅ `SetIamPolicy` - Full implementation
-- ✅ `GetIamPolicy` - Full implementation  
-- ✅ `TestIamPermissions` - Full implementation with principal matching
+- `SetIamPolicy` - Full implementation
+- `GetIamPolicy` - Full implementation  
+- `TestIamPermissions` - Full implementation with principal matching
 
 **Policy Fields:**
-- ✅ `bindings[]` - Role assignments with members
-  - ✅ `role` - IAM role string
-  - ✅ `members[]` - Principal identifiers
+- `bindings[]` - Role assignments with members
+  - `role` - IAM role string
+  - `members[]` - Principal identifiers
+- `version` - Policy format version (1=basic, 3=conditions)
+- `etag` - Optimistic concurrency control (SHA256-based)
+- `auditConfigs[]` - Audit logging configuration
+- `bindings[].condition` - Conditional role bindings (CEL expressions)
 
 **Features:**
-- ✅ Principal injection via gRPC metadata
-- ✅ Resource hierarchy policy inheritance
-- ✅ 26 permissions across Secret Manager + KMS
-- ✅ 10 roles (primitive + service-specific)
-- ✅ Trace mode for debugging authz decisions
+- Principal injection via gRPC metadata
+- Resource hierarchy policy inheritance
+- Custom roles (extensible to any GCP service)
+- Conditional bindings (CEL expressions)
+- Groups support (nested, 1 level)
+- REST API gateway (HTTP/JSON)
+- Enhanced trace mode (JSON output, duration metrics)
+- Strict mode (unknown roles denied by default)
 
-### What's Missing (Planned for v0.3.0)
+### Limitations
 
-**Policy Fields:**
-- ❌ `version` - Policy format version (0, 1, 3)
-- ❌ `etag` - Optimistic concurrency control
-- ❌ `auditConfigs[]` - Audit logging configuration
-- ❌ `bindings[].condition` - Conditional role bindings (CEL expressions)
-
-**Impact on v0.2.0:**
-- Clients expecting `etag` will not see it (optimistic locking not enforced)
-- Policies with conditions won't work (version 3 not supported)
-- Full policy roundtrip may lose `auditConfigs` data
-- **Workaround:** Use emulator for testing, not for production policy management
-
-### Additional Limitations
-
-- No custom roles (primitive + service roles only)
 - No organization/folder hierarchy (project is root)
 - No service accounts or token minting
-- No audit logging enforcement
-- No REST API (gRPC only in v0.2.0, REST planned for v0.3.0)
+- No audit logging enforcement (auditConfigs accepted but not enforced)
+- CEL expressions: basic subset only (startsWith, type equality, time comparisons)
 
 **Current scope:** Core IAM policy operations for CI/CD testing with emulators
 
