@@ -608,16 +608,24 @@ if err != nil {
 
 **Every integrated emulator MUST:**
 
-- [ ] Normalize resource names to canonical form before IAM checks
-- [ ] Use official GCP permission strings (no custom permissions)
-- [ ] Extract principal from standard header/metadata (`x-emulator-principal` / `X-Emulator-Principal`)
-- [ ] Propagate principal via metadata to IAM emulator (not as function parameter)
-- [ ] Call IAM via `TestIamPermissions` gRPC method
-- [ ] Support `IAM_MODE` environment variable (`off`, `permissive`, `strict`)
-- [ ] Return `PermissionDenied` (gRPC) or `403 Forbidden` (HTTP) on authorization denial
-- [ ] Classify errors correctly (connectivity vs config)
-- [ ] Default to `IAM_MODE=off` (legacy behavior, non-breaking)
-- [ ] Document which operations check which resources (parent vs target)
+- [ ] Canonical resource naming (projects/{project}/...)
+- [ ] Operation → permission mapping documented in README
+- [ ] Principal extraction (gRPC `x-emulator-principal` + HTTP `X-Emulator-Principal`)
+- [ ] Principal propagation to IAM emulator via metadata
+- [ ] Three IAM modes supported: off/permissive/strict
+- [ ] Environment variables: `IAM_MODE` and `IAM_HOST`
+- [ ] Uses `gcp-emulator-auth` shared library
+- [ ] Resource normalization functions (parent vs self)
+- [ ] Permission check before each operation
+- [ ] Error responses (403 PermissionDenied, 500 Internal)
+- [ ] Unit tests with IAM_MODE=off (default behavior)
+- [ ] Integration tests with IAM emulator running
+- [ ] Integration tests for permissive vs strict modes
+- [ ] README with IAM integration section
+- [ ] Permission reference table (operation → permission → resource)
+- [ ] Docker Compose integration example
+- [ ] Backward compatible (IAM_MODE=off as default)
+- [ ] Non-breaking for existing users
 
 **Recommended (but not required):**
 
