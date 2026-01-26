@@ -341,17 +341,50 @@ level=INFO msg="authz decision" decision=DENY principal=user:dev@example.com res
 
 See [ROADMAP.md](docs/ROADMAP.md) for full details.
 
-## Limitations (MVP)
+## API Parity with GCP IAM
 
-- No principal checking yet (v0.2.0 adds this)
-- No policy inheritance yet (v0.2.0 adds this)
+### What's Implemented (v0.2.0)
+
+**Methods:**
+- ✅ `SetIamPolicy` - Full implementation
+- ✅ `GetIamPolicy` - Full implementation  
+- ✅ `TestIamPermissions` - Full implementation with principal matching
+
+**Policy Fields:**
+- ✅ `bindings[]` - Role assignments with members
+  - ✅ `role` - IAM role string
+  - ✅ `members[]` - Principal identifiers
+
+**Features:**
+- ✅ Principal injection via gRPC metadata
+- ✅ Resource hierarchy policy inheritance
+- ✅ 26 permissions across Secret Manager + KMS
+- ✅ 10 roles (primitive + service-specific)
+- ✅ Trace mode for debugging authz decisions
+
+### What's Missing (Planned for v0.3.0)
+
+**Policy Fields:**
+- ❌ `version` - Policy format version (0, 1, 3)
+- ❌ `etag` - Optimistic concurrency control
+- ❌ `auditConfigs[]` - Audit logging configuration
+- ❌ `bindings[].condition` - Conditional role bindings (CEL expressions)
+
+**Impact on v0.2.0:**
+- Clients expecting `etag` will not see it (optimistic locking not enforced)
+- Policies with conditions won't work (version 3 not supported)
+- Full policy roundtrip may lose `auditConfigs` data
+- **Workaround:** Use emulator for testing, not for production policy management
+
+### Additional Limitations
+
 - No custom roles (primitive + service roles only)
-- No conditional role bindings
-- No organization/folder hierarchy
+- No organization/folder hierarchy (project is root)
 - No service accounts or token minting
-- No audit logging
+- No audit logging enforcement
+- No REST API (gRPC only in v0.2.0, REST planned for v0.3.0)
 
-**Current scope:** Core IAM policy operations for testing emulator integrations
+**Current scope:** Core IAM policy operations for CI/CD testing with emulators
 
 ## Project Status
 
