@@ -111,6 +111,7 @@ func TestCustomRoles_OverrideBuiltIn(t *testing.T) {
 
 func TestWildcardRole_SecretManager(t *testing.T) {
 	s := NewStorage()
+	s.SetAllowUnknownRoles(true)
 
 	policy := &iampb.Policy{
 		Version: 1,
@@ -147,6 +148,7 @@ func TestWildcardRole_SecretManager(t *testing.T) {
 
 func TestWildcardRole_KMS(t *testing.T) {
 	s := NewStorage()
+	s.SetAllowUnknownRoles(true)
 
 	policy := &iampb.Policy{
 		Version: 1,

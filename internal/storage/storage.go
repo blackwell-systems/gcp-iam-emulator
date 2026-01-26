@@ -20,6 +20,7 @@ type Storage struct {
 	policies         map[string]*iampb.Policy
 	groups           map[string][]string
 	customRoles      map[string][]string
+	allowUnknownRoles bool
 }
 
 type Project struct {
@@ -48,12 +49,19 @@ type ServiceAccountKey struct {
 
 func NewStorage() *Storage {
 	return &Storage{
-		projects:        make(map[string]*Project),
-		serviceAccounts: make(map[string]*ServiceAccount),
-		policies:        make(map[string]*iampb.Policy),
-		groups:          make(map[string][]string),
-		customRoles:     make(map[string][]string),
+		projects:          make(map[string]*Project),
+		serviceAccounts:   make(map[string]*ServiceAccount),
+		policies:          make(map[string]*iampb.Policy),
+		groups:            make(map[string][]string),
+		customRoles:       make(map[string][]string),
+		allowUnknownRoles: false,
 	}
+}
+
+func (s *Storage) SetAllowUnknownRoles(allow bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.allowUnknownRoles = allow
 }
 
 func (s *Storage) CreateProject(projectID string) (*Project, error) {
@@ -340,7 +348,11 @@ func (s *Storage) getRolePermissions(role string, permission string) ([]string, 
 		return perms, true
 	}
 
-	return s.wildcardRolePermissions(role, permission)
+	if s.allowUnknownRoles {
+		return s.wildcardRolePermissions(role, permission)
+	}
+
+	return nil, false
 }
 
 func (s *Storage) wildcardRolePermissions(role, permission string) ([]string, bool) {

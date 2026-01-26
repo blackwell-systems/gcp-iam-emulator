@@ -519,7 +519,8 @@ projects:
 **Features:**
 - **Extensible** - Define permissions for any GCP service
 - **Override built-in roles** - Custom roles take precedence
-- **Wildcard fallback** - Unknown roles auto-match by service prefix
+- **Strict mode by default** - Unknown roles denied (catches misconfigurations)
+- **Compat mode available** - Wildcard fallback with `--allow-unknown-roles`
   - `roles/secretmanager.customRole` → grants `secretmanager.*`
   - `roles/cloudkms.encryptOnly` → grants `cloudkms.*`
 
@@ -528,9 +529,42 @@ projects:
 - Each test environment needs different permissions
 - Keeps emulator offline, deterministic, and CI-friendly
 
+**Modes:**
+
+**Strict mode (default, recommended):**
+```bash
+server --config policy.yaml
+```
+- Unknown roles → **DENIED**
+- Custom roles → allowed
+- Built-in roles → allowed
+- **Catches bugs**: Tests fail if you use a role you haven't defined
+
+**Compat mode (less strict):**
+```bash
+server --config policy.yaml --allow-unknown-roles
+```
+- Unknown roles → **wildcard match** (if service prefix matches)
+- More permissive, but can hide bugs
+- Use when migrating existing tests
+
+**Decision order:**
+1. Custom roles (highest priority)
+2. Built-in roles (primitives + Secret Manager + KMS)
+3. Wildcard match (only in compat mode)
+4. Deny (strict mode default)
+
 ## Architecture
 
 **In-memory policy storage** with thread-safe concurrent access. **Simple permission engine** mapping roles to permissions. **Resource-level policies** (no organization/folder hierarchy in MVP). **No token minting** (pure policy evaluation only).
+
+## Design Philosophy
+
+**This emulator is not a full IAM reimplementation.** It provides deterministic, CI-friendly policy evaluation. Custom roles let you model the subset of permissions your tests require, without hardcoding the entire GCP permission universe.
+
+**Goal:** Catch authorization bugs locally (missing permissions, wrong roles, misconfigured principals) without requiring GCP credentials or network access.
+
+**Non-goal:** Perfect fidelity with every GCP IAM edge case. If your test passes here but fails in real GCP, that's a signal to refine your custom role definitions.
 
 ## Roadmap
 

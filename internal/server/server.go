@@ -41,6 +41,10 @@ func (s *Server) SetExplain(explain bool) {
 	s.explain = explain
 }
 
+func (s *Server) SetAllowUnknownRoles(allow bool) {
+	s.storage.SetAllowUnknownRoles(allow)
+}
+
 func (s *Server) SetTraceOutput(path string) error {
 	f, err := os.Create(path)
 	if err != nil {

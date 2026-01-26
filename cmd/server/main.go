@@ -20,14 +20,15 @@ import (
 )
 
 var (
-	port        = flag.Int("port", 8080, "Port to listen on")
-	httpPort    = flag.Int("http-port", 0, "HTTP REST port (0 = disabled)")
-	configFile  = flag.String("config", "", "Path to policy config file (YAML)")
-	watch       = flag.Bool("watch", false, "Watch config file for changes and hot reload")
-	trace       = flag.Bool("trace", false, "Enable trace mode (log authz decisions)")
-	explain     = flag.Bool("explain", false, "Enable verbose trace output (implies --trace)")
-	traceOutput = flag.String("trace-output", "", "Output file for JSON trace logs (implies --trace)")
-	version     = "0.3.0-dev"
+	port              = flag.Int("port", 8080, "Port to listen on")
+	httpPort          = flag.Int("http-port", 0, "HTTP REST port (0 = disabled)")
+	configFile        = flag.String("config", "", "Path to policy config file (YAML)")
+	watch             = flag.Bool("watch", false, "Watch config file for changes and hot reload")
+	trace             = flag.Bool("trace", false, "Enable trace mode (log authz decisions)")
+	explain           = flag.Bool("explain", false, "Enable verbose trace output (implies --trace)")
+	traceOutput       = flag.String("trace-output", "", "Output file for JSON trace logs (implies --trace)")
+	allowUnknownRoles = flag.Bool("allow-unknown-roles", false, "Enable wildcard role matching (compat mode, less strict)")
+	version           = "0.4.0-dev"
 )
 
 func main() {
@@ -39,6 +40,7 @@ func main() {
 	
 	iamServer := server.NewServer()
 	iamServer.SetTrace(enableTrace)
+	iamServer.SetAllowUnknownRoles(*allowUnknownRoles)
 	
 	if *explain {
 		iamServer.SetExplain(true)
@@ -68,6 +70,12 @@ func main() {
 		if *traceOutput != "" {
 			log.Printf("Trace output: %s (JSON format)", *traceOutput)
 		}
+	}
+	
+	if *allowUnknownRoles {
+		log.Printf("Compat mode: ENABLED (wildcard role matching allowed - less strict)")
+	} else {
+		log.Printf("Strict mode: ENABLED (unknown roles denied - use --allow-unknown-roles for compat mode)")
 	}
 
 	if *httpPort > 0 {
