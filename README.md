@@ -31,7 +31,9 @@ A production-grade IAM policy engine providing complete, behaviorally-accurate p
 - `GetIamPolicy` - Retrieve IAM policy for a resource
 - `TestIamPermissions` - Check which permissions are granted
 
-### Supported Roles
+### Built-in Roles (Bootstrap Set)
+
+The emulator includes a **small built-in set** for immediate use. For production tests, define custom roles in YAML.
 
 **Primitive roles:**
 - `roles/owner` - Full access to all resources
@@ -41,46 +43,16 @@ A production-grade IAM policy engine providing complete, behaviorally-accurate p
 **Secret Manager roles:**
 - `roles/secretmanager.admin` - Full secret management
 - `roles/secretmanager.secretAccessor` - Read secret values only
-- `roles/secretmanager.secretVersionManager` - Manage versions (add, enable, disable, destroy)
+- `roles/secretmanager.secretVersionManager` - Manage versions
 
 **KMS roles:**
 - `roles/cloudkms.admin` - Full KMS management
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` - Encrypt/decrypt only
 - `roles/cloudkms.viewer` - Read-only KMS access
 
-### Supported Permissions
+**Total:** 10 built-in roles, 26 permissions
 
-**Secret Manager (12 permissions):**
-- `secretmanager.secrets.get` - Get secret metadata
-- `secretmanager.secrets.create` - Create new secrets
-- `secretmanager.secrets.update` - Update secret metadata
-- `secretmanager.secrets.delete` - Delete secrets
-- `secretmanager.secrets.list` - List secrets
-- `secretmanager.versions.add` - Add new secret versions
-- `secretmanager.versions.get` - Get version metadata
-- `secretmanager.versions.access` - Read secret values
-- `secretmanager.versions.list` - List versions
-- `secretmanager.versions.enable` - Enable versions
-- `secretmanager.versions.disable` - Disable versions
-- `secretmanager.versions.destroy` - Destroy versions
-
-**KMS (14 permissions):**
-- `cloudkms.keyRings.create` - Create key rings
-- `cloudkms.keyRings.get` - Get key ring metadata
-- `cloudkms.keyRings.list` - List key rings
-- `cloudkms.cryptoKeys.create` - Create crypto keys
-- `cloudkms.cryptoKeys.get` - Get key metadata
-- `cloudkms.cryptoKeys.list` - List keys
-- `cloudkms.cryptoKeys.update` - Update key metadata
-- `cloudkms.cryptoKeys.encrypt` - Encrypt data
-- `cloudkms.cryptoKeys.decrypt` - Decrypt data
-- `cloudkms.cryptoKeyVersions.create` - Create key versions
-- `cloudkms.cryptoKeyVersions.get` - Get version metadata
-- `cloudkms.cryptoKeyVersions.list` - List versions
-- `cloudkms.cryptoKeyVersions.update` - Update version state
-- `cloudkms.cryptoKeyVersions.destroy` - Destroy versions
-
-**Total:** 10 roles, 26 permissions (complete coverage of emulator operations)
+**Need more services?** Define custom roles in YAML - see [Custom Roles](#custom-roles-v040) section below.
 
 ## Quick Start
 
@@ -135,12 +107,23 @@ docker run -p 8080:8080 \
 Create `policy.yaml`:
 
 ```yaml
+# Define custom roles for your test environment
+roles:
+  roles/custom.dataReader:
+    permissions:
+      - bigquery.datasets.get
+      - bigquery.tables.list
+
 projects:
   test-project:
     bindings:
       - role: roles/owner
         members:
           - user:admin@example.com
+      
+      - role: roles/custom.dataReader
+        members:
+          - user:analyst@example.com
       
       - role: roles/secretmanager.secretAccessor
         members:
@@ -153,6 +136,8 @@ projects:
             members:
               - serviceAccount:app@test-project.iam.gserviceaccount.com
 ```
+
+**Note:** The emulator includes built-in roles for primitives + Secret Manager + KMS. For other GCP services, define custom roles as shown above.
 
 ### Use with GCP SDK
 
