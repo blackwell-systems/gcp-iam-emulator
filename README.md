@@ -484,6 +484,50 @@ projects:
               - serviceAccount:logging@test-project.iam.gserviceaccount.com
 ```
 
+### Custom Roles (v0.4.0)
+
+Define your own role-to-permission mappings for any GCP service:
+
+```yaml
+roles:
+  roles/custom.dataReader:
+    permissions:
+      - bigquery.datasets.get
+      - bigquery.tables.list
+      - bigquery.tables.getData
+  
+  roles/custom.pubsubPublisher:
+    permissions:
+      - pubsub.topics.publish
+      - pubsub.topics.get
+  
+  roles/custom.storageAdmin:
+    permissions:
+      - storage.buckets.create
+      - storage.buckets.delete
+      - storage.objects.create
+      - storage.objects.delete
+
+projects:
+  test-project:
+    bindings:
+      - role: roles/custom.dataReader
+        members:
+          - user:analyst@example.com
+```
+
+**Features:**
+- **Extensible** - Define permissions for any GCP service
+- **Override built-in roles** - Custom roles take precedence
+- **Wildcard fallback** - Unknown roles auto-match by service prefix
+  - `roles/secretmanager.customRole` → grants `secretmanager.*`
+  - `roles/cloudkms.encryptOnly` → grants `cloudkms.*`
+
+**Why this matters:**
+- GCP has thousands of permissions - hardcoding doesn't scale
+- Each test environment needs different permissions
+- Keeps emulator offline, deterministic, and CI-friendly
+
 ## Architecture
 
 **In-memory policy storage** with thread-safe concurrent access. **Simple permission engine** mapping roles to permissions. **Resource-level policies** (no organization/folder hierarchy in MVP). **No token minting** (pure policy evaluation only).

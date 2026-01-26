@@ -134,6 +134,15 @@ func loadConfig(path string, iamServer *server.Server) error {
 		log.Printf("Loaded %d groups from config", len(groups))
 	}
 	
+	if len(cfg.Roles) > 0 {
+		roles := make(map[string][]string)
+		for roleName, roleCfg := range cfg.Roles {
+			roles[roleName] = roleCfg.Permissions
+		}
+		iamServer.LoadCustomRoles(roles)
+		log.Printf("Loaded %d custom roles from config", len(roles))
+	}
+	
 	return nil
 }
 

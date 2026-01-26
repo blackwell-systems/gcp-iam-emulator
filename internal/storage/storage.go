@@ -19,6 +19,7 @@ type Storage struct {
 	serviceAccounts  map[string]*ServiceAccount
 	policies         map[string]*iampb.Policy
 	groups           map[string][]string
+	customRoles      map[string][]string
 }
 
 type Project struct {
@@ -51,6 +52,7 @@ func NewStorage() *Storage {
 		serviceAccounts: make(map[string]*ServiceAccount),
 		policies:        make(map[string]*iampb.Policy),
 		groups:          make(map[string][]string),
+		customRoles:     make(map[string][]string),
 	}
 }
 
@@ -134,6 +136,13 @@ func (s *Storage) LoadGroups(groups map[string][]string) {
 	s.groups = groups
 }
 
+func (s *Storage) LoadCustomRoles(roles map[string][]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.customRoles = roles
+}
+
 func (s *Storage) GetIamPolicy(resource string) (*iampb.Policy, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -202,8 +211,12 @@ func (s *Storage) resolvePolicy(resource string) *iampb.Policy {
 	return nil
 }
 
-func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permission string, evalCtx EvalContext, trace bool) (bool, string) { //nolint:staticcheck // Using standard genproto package
-	rolePerms := map[string][]string{
+func (s *Storage) getRolePermissions(role string, permission string) ([]string, bool) {
+	if perms, ok := s.customRoles[role]; ok {
+		return perms, true
+	}
+
+	builtInRoles := map[string][]string{
 		"roles/owner": {
 			"secretmanager.secrets.get",
 			"secretmanager.secrets.create",
@@ -323,9 +336,33 @@ func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permissi
 		},
 	}
 
+	if perms, ok := builtInRoles[role]; ok {
+		return perms, true
+	}
+
+	return s.wildcardRolePermissions(role, permission)
+}
+
+func (s *Storage) wildcardRolePermissions(role, permission string) ([]string, bool) {
+	if !strings.HasPrefix(role, "roles/") {
+		return nil, false
+	}
+
+	roleName := strings.TrimPrefix(role, "roles/")
+	permPrefix := strings.Split(permission, ".")[0]
+
+	if strings.Contains(roleName, permPrefix) {
+		return []string{permission}, true
+	}
+
+	return nil, false
+}
+
+func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permission string, evalCtx EvalContext, trace bool) (bool, string) { //nolint:staticcheck // Using standard genproto package
+
 	if principal == "" {
 		for _, binding := range policy.Bindings {
-			perms, ok := rolePerms[binding.Role]
+			perms, ok := s.getRolePermissions(binding.Role, permission)
 			if !ok {
 				continue
 			}
@@ -340,7 +377,7 @@ func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permissi
 	}
 
 	for _, binding := range policy.Bindings {
-		perms, ok := rolePerms[binding.Role]
+		perms, ok := s.getRolePermissions(binding.Role, permission)
 		if !ok {
 			continue
 		}
@@ -417,4 +454,5 @@ func (s *Storage) Clear() {
 	s.serviceAccounts = make(map[string]*ServiceAccount)
 	s.policies = make(map[string]*iampb.Policy)
 	s.groups = make(map[string][]string)
+	s.customRoles = make(map[string][]string)
 }

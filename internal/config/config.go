@@ -12,10 +12,15 @@ import (
 type Config struct {
 	Projects map[string]ProjectConfig `yaml:"projects"`
 	Groups   map[string]GroupConfig   `yaml:"groups,omitempty"`
+	Roles    map[string]RoleConfig    `yaml:"roles,omitempty"`
 }
 
 type GroupConfig struct {
 	Members []string `yaml:"members"`
+}
+
+type RoleConfig struct {
+	Permissions []string `yaml:"permissions"`
 }
 
 type ProjectConfig struct {

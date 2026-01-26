@@ -63,6 +63,10 @@ func (s *Server) LoadGroups(groups map[string][]string) {
 	s.storage.LoadGroups(groups)
 }
 
+func (s *Server) LoadCustomRoles(roles map[string][]string) {
+	s.storage.LoadCustomRoles(roles)
+}
+
 func (s *Server) GetStorage() *storage.Storage {
 	return s.storage
 }

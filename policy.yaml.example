@@ -1,6 +1,30 @@
 # Example policy configuration for GCP IAM Emulator
 # Load with: server --config policy.yaml
 
+# Custom roles (v0.4.0+): Define your own role-to-permission mappings
+roles:
+  roles/custom.dataReader:
+    permissions:
+      - bigquery.datasets.get
+      - bigquery.tables.list
+      - bigquery.tables.getData
+  
+  roles/custom.pubsubPublisher:
+    permissions:
+      - pubsub.topics.publish
+      - pubsub.topics.get
+  
+  roles/custom.storageAdmin:
+    permissions:
+      - storage.buckets.create
+      - storage.buckets.delete
+      - storage.buckets.get
+      - storage.buckets.list
+      - storage.objects.create
+      - storage.objects.delete
+      - storage.objects.get
+      - storage.objects.list
+
 # Groups (v0.3.0+): Define reusable groups of principals
 groups:
   developers:
