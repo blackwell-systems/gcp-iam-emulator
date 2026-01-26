@@ -2,6 +2,18 @@
 
 This document defines the integration contract for GCP emulators to use IAM Emulator as a shared authorization layer.
 
+## TL;DR
+
+```
+IAM_MODE=off (default)      → Legacy behavior, all requests allowed
+IAM_MODE=permissive         → Enforce IAM when available, fail-open on connectivity issues
+IAM_MODE=strict             → Enforce IAM always, fail-closed (recommended for CI)
+```
+
+**The built-in roles stay small by design. The permission universe is defined by your policy file via custom roles.**
+
+---
+
 ## Vision
 
 **One policy file, one principal injection method, consistent resource naming, and every emulator enforces auth the same way.**
@@ -19,17 +31,17 @@ The IAM Emulator becomes the keystone of a coherent local GCP emulator mesh wher
 Existing emulators currently have no authentication/authorization - all requests succeed. This behavior is preserved by default when IAM integration is added.
 
 **Key principles:**
-- `IAM_ENABLED=false` by default (current behavior maintained)
+- `IAM_MODE=off` by default (current behavior maintained)
 - Existing deployments continue working without changes
-- New users opt-in by setting `IAM_ENABLED=true`
+- New users opt-in by setting `IAM_MODE=permissive` or `IAM_MODE=strict`
 - No code changes required for existing users
 - Clear migration path for gradual adoption
 
 **Versioning:**
 - Secret Manager v1.x: No IAM integration
-- Secret Manager v2.0+: IAM integration available (opt-in)
+- Secret Manager v2.0+: IAM integration available (opt-in via IAM_MODE)
 - KMS v1.x: No IAM integration  
-- KMS v2.0+: IAM integration available (opt-in)
+- KMS v2.0+: IAM integration available (opt-in via IAM_MODE)
 
 Major version bump signals new optional feature, but existing behavior is default.
 
@@ -79,8 +91,9 @@ func NormalizeSecretResource(name string) string {
 
 func NormalizeSecretVersionResource(name string) string {
     // Input: "projects/test/secrets/db-password/versions/latest"
-    // Output: "projects/test/secrets/db-password/versions/1" (resolved)
+    // Output: "projects/test/secrets/db-password/versions/latest" (preserve alias)
     // Keep full path for version-specific permissions
+    // Note: Alias resolution (latest → numeric) happens in emulator logic, not normalization
     return name
 }
 ```
@@ -263,15 +276,29 @@ Each emulator needs an IAM client with proper timeout, caching, and failure mode
 type AuthMode string
 
 const (
-    // AuthModeOff: No IAM checks (current behavior, default)
+    // AuthModeOff: No IAM checks (legacy behavior, default)
     AuthModeOff AuthMode = "off"
     
-    // AuthModePermissive: Call IAM if available; on error, allow (fail-open)
+    // AuthModePermissive: Call IAM when available; fail-open on connectivity issues
+    // Use for development where IAM might not be running yet
     AuthModePermissive AuthMode = "permissive"
     
-    // AuthModeStrict: Require IAM checks; on error, deny (fail-closed)
+    // AuthModeStrict: Require IAM checks; fail-closed on any error
+    // Recommended for CI/CD to catch permission issues
     AuthModeStrict AuthMode = "strict"
 )
+
+// Parse from environment variable
+func ParseAuthMode(env string) AuthMode {
+    switch strings.ToLower(env) {
+    case "permissive":
+        return AuthModePermissive
+    case "strict":
+        return AuthModeStrict
+    default:
+        return AuthModeOff
+    }
+}
 ```
 
 #### Client Implementation
@@ -320,16 +347,34 @@ func (c *IAMClient) CheckPermission(
     })
     
     if err != nil {
-        // Handle IAM unavailable based on mode
-        if c.mode == AuthModePermissive {
-            // Fail-open: allow on error
-            return true, nil
+        // Classify error type
+        if isConnectivityError(err) {
+            // IAM emulator unreachable/timeout
+            if c.mode == AuthModePermissive {
+                // Fail-open: allow on connectivity issues
+                return true, nil
+            }
+            // Strict mode: fail-closed on connectivity issues
+            return false, err
         }
-        // Strict mode: fail-closed
+        
+        // Bad request/config error: always deny (both modes)
+        // This indicates emulator misconfiguration that should be fixed
         return false, err
     }
     
     return len(resp.Permissions) == 1, nil
+}
+
+func isConnectivityError(err error) bool {
+    // Classify as connectivity if:
+    // - Unavailable (connection refused)
+    // - DeadlineExceeded (timeout)
+    // - Canceled (context cancelled)
+    code := status.Code(err)
+    return code == codes.Unavailable || 
+           code == codes.DeadlineExceeded || 
+           code == codes.Canceled
 }
 ```
 
@@ -425,22 +470,25 @@ type Server struct {
 
 func NewServer() (*Server, error) {
     s := &Server{
-        storage:    storage.NewStorage(),
-        iamEnabled: os.Getenv("IAM_ENABLED") == "true",
+        storage: storage.NewStorage(),
     }
     
-    // Only connect to IAM if enabled
-    if s.iamEnabled {
+    // Parse IAM mode from environment
+    iamMode := ParseAuthMode(os.Getenv("IAM_MODE"))
+    
+    // Only connect to IAM if not in "off" mode
+    if iamMode != AuthModeOff {
         iamHost := os.Getenv("IAM_EMULATOR_HOST")
         if iamHost == "" {
             iamHost = "localhost:8080"
         }
         
-        client, err := NewIAMClient(iamHost)
+        client, err := NewIAMClient(iamHost, iamMode)
         if err != nil {
             return nil, fmt.Errorf("failed to connect to IAM emulator: %w", err)
         }
         s.iamClient = client
+        s.iamMode = iamMode
     }
     
     return s, nil
@@ -453,62 +501,131 @@ func NewServer() (*Server, error) {
 
 Standardized environment variables across all emulators:
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `IAM_ENABLED` | Enable/disable IAM checks | `false` |
-| `IAM_EMULATOR_HOST` | IAM emulator gRPC endpoint | `localhost:8080` |
-| `IAM_TRACE` | Enable IAM decision logging | `false` |
+| Variable | Purpose | Default | Values |
+|----------|---------|---------|--------|
+| `IAM_MODE` | Authorization mode | `off` | `off`, `permissive`, `strict` |
+| `IAM_EMULATOR_HOST` | IAM emulator gRPC endpoint | `localhost:8080` | `host:port` |
+| `IAM_TRACE` | Enable IAM decision logging | `false` | `true`, `false` |
 
 **Important: IAM integration is opt-in and non-breaking.**
 
-#### Default Behavior (IAM Disabled)
+#### Mode Behaviors
+
+**Off (default - legacy behavior):**
 ```bash
-# No IAM checks - all requests succeed (current behavior)
+# No IAM checks - all requests succeed
 server
+# or explicitly:
+IAM_MODE=off server
 ```
 
-This matches current emulator behavior where no authentication/authorization is enforced.
-
-#### Enable IAM Integration
+**Permissive (development mode):**
 ```bash
-# Enable IAM checks
-IAM_ENABLED=true IAM_EMULATOR_HOST=iam:8080 server
+# Check IAM when available, allow on connectivity issues
+IAM_MODE=permissive IAM_EMULATOR_HOST=iam:8080 server
 ```
+- IAM reachable → enforce permissions
+- IAM unreachable → allow (fail-open)
+- Bad config → deny (prevents masking bugs)
 
-When `IAM_ENABLED=true`, the emulator will check permissions before each operation.
+**Strict (CI/production mode):**
+```bash
+# Require IAM checks, deny on any error
+IAM_MODE=strict IAM_EMULATOR_HOST=iam:8080 server
+```
+- IAM reachable → enforce permissions
+- IAM unreachable → deny (fail-closed)
+- Bad config → deny
 
 **Migration path:**
-1. Existing users: no changes needed (IAM disabled by default)
-2. New users: opt-in by setting `IAM_ENABLED=true`
-3. Gradual adoption: enable IAM per environment (dev, staging, CI)
+1. Existing users: no changes needed (`IAM_MODE=off` by default)
+2. Development: opt-in with `IAM_MODE=permissive`
+3. CI/CD: use `IAM_MODE=strict` to catch permission issues
 
 ---
 
 ### 6. Error Handling
 
-#### Permission Denied
-When IAM check fails, return standard gRPC error:
+Errors from IAM checks fall into three categories with different behaviors:
+
+#### 1. Permission Denied (Normal Authorization Denial)
+
+When IAM successfully evaluates and denies permission:
+
+**gRPC:**
 ```go
 status.Error(codes.PermissionDenied, "Permission denied")
 ```
 
-HTTP equivalent: `403 Forbidden`
+**HTTP:**
+```
+403 Forbidden
+```
 
-#### IAM Unavailable
-When IAM emulator is unreachable:
-- **Strict mode (default):** Fail closed (deny all requests)
-- **Permissive mode (opt-in):** Fail open (allow all requests)
+**Behavior:** Always deny in all modes (this is the normal authorization flow).
 
+#### 2. Connectivity Errors (IAM Unreachable)
+
+When IAM emulator is unreachable, timeout, or connection refused:
+
+**Error codes:**
+- `codes.Unavailable` (connection refused)
+- `codes.DeadlineExceeded` (timeout)
+- `codes.Canceled` (context cancelled)
+
+**Behavior:**
+- **Permissive mode:** Allow (fail-open, minimizes disruption during development)
+- **Strict mode:** Deny (fail-closed, security-first for CI)
+
+#### 3. Bad Request / Configuration Errors
+
+When IAM returns error due to misconfiguration:
+- Invalid resource format
+- Malformed permission string
+- Internal IAM error
+- Bad policy syntax
+
+**Behavior:** Always deny in both modes (indicates a bug/config issue that must be fixed).
+
+**Implementation pattern:**
 ```go
 if err != nil {
-    if s.iamPermissive {
-        // Fail open (allow)
-        return true, nil
+    if isConnectivityError(err) {
+        // Handle based on mode (fail-open vs fail-closed)
+        if mode == AuthModePermissive {
+            return true, nil
+        }
+        return false, err
     }
-    // Fail closed (deny)
+    // All other errors: deny (config/bug)
     return false, err
 }
 ```
+
+---
+
+### 7. Integration Contract Checklist
+
+**Every integrated emulator MUST:**
+
+- [ ] Normalize resource names to canonical form before IAM checks
+- [ ] Use official GCP permission strings (no custom permissions)
+- [ ] Extract principal from standard header/metadata (`x-emulator-principal` / `X-Emulator-Principal`)
+- [ ] Propagate principal via metadata to IAM emulator (not as function parameter)
+- [ ] Call IAM via `TestIamPermissions` gRPC method
+- [ ] Support `IAM_MODE` environment variable (`off`, `permissive`, `strict`)
+- [ ] Return `PermissionDenied` (gRPC) or `403 Forbidden` (HTTP) on authorization denial
+- [ ] Classify errors correctly (connectivity vs config)
+- [ ] Default to `IAM_MODE=off` (legacy behavior, non-breaking)
+- [ ] Document which operations check which resources (parent vs target)
+
+**Recommended (but not required):**
+
+- [ ] Short timeout for IAM calls (2 seconds)
+- [ ] Cache IAM decisions with tiny TTL (5 seconds)
+- [ ] Log IAM decisions when `IAM_TRACE=true`
+- [ ] Provide health check endpoint
+- [ ] Document resource naming conventions
 
 ---
 
@@ -518,7 +635,7 @@ When IAM integration is enabled, understand how authorization decisions flow:
 
 ### Operation-Level Behavior
 
-**When IAM is enabled (`IAM_ENABLED=true`):**
+**When IAM is enabled (`IAM_MODE=permissive` or `IAM_MODE=strict`):**
 
 1. **Request arrives** at emulator (Secret Manager, KMS, etc.)
 2. **Principal extracted** from `x-emulator-principal` metadata/header
@@ -541,26 +658,28 @@ When IAM integration is enabled, understand how authorization decisions flow:
 ### Error Scenarios
 
 **Missing principal + IAM enabled:**
-- **Permissive:** Allow (backwards compatible)
+- **Permissive:** Allow (legacy compatible, useful for gradual migration)
 - **Strict:** Deny with `PermissionDenied`
 
-**IAM emulator unreachable:**
-- **Permissive:** Allow all requests (fail-open, minimizes disruption)
-- **Strict:** Deny all requests (fail-closed, security-first)
+**IAM emulator unreachable (connectivity error):**
+- **Permissive:** Allow (fail-open, minimizes disruption during development)
+- **Strict:** Deny (fail-closed, security-first for CI)
 
-**IAM returns error (invalid resource, malformed request):**
-- Both modes: Deny (indicates configuration problem)
+**IAM returns configuration error (invalid resource, bad policy syntax):**
+- **Both modes:** Deny (indicates bug/misconfiguration that must be fixed)
 
 ### Why This Matters
 
 **Prevents surprises:**
-- "Why did my CI suddenly start denying requests?" → Check `IAM_ENABLED` and principal injection
+- "Why did my CI suddenly start denying requests?" → Check `IAM_MODE` and principal injection
 - "Why are all requests allowed despite policy?" → Check IAM mode and connectivity
+- "IAM is down but tests still pass?" → You're in permissive mode (expected)
+- "IAM config error but tests pass?" → Both modes deny config errors (check logs)
 
 **Clear contract:**
-- Off = legacy (no checks)
-- Permissive = best-effort (allow on problems)
-- Strict = security-first (deny on problems)
+- `off` = legacy (no checks, default)
+- `permissive` = best-effort (allow on connectivity issues, deny on config errors)
+- `strict` = security-first (deny on any error, recommended for CI)
 
 ---
 
@@ -579,32 +698,32 @@ services:
       - ./policy.yaml:/policy.yaml
     command: --config /policy.yaml --trace
   
-  # Secret Manager with IAM integration enabled
+  # Secret Manager with IAM (strict mode for CI)
   secret-manager:
     image: ghcr.io/blackwell-systems/gcp-secret-manager-emulator:latest
     environment:
-      IAM_ENABLED: "true"              # Opt-in to IAM checks
+      IAM_MODE: strict              # Fail-closed (recommended for CI)
       IAM_EMULATOR_HOST: iam:8080
     ports:
       - "9090:9090"
     depends_on:
       - iam
   
-  # KMS with IAM integration enabled
+  # KMS with IAM (permissive mode for development)
   kms:
     image: ghcr.io/blackwell-systems/gcp-kms-emulator:latest
     environment:
-      IAM_ENABLED: "true"              # Opt-in to IAM checks
+      IAM_MODE: permissive         # Fail-open (useful during development)
       IAM_EMULATOR_HOST: iam:8080
     ports:
       - "9091:9090"
     depends_on:
       - iam
   
-  # Example: Secret Manager without IAM (current behavior)
+  # Example: Secret Manager without IAM (legacy behavior)
   secret-manager-legacy:
     image: ghcr.io/blackwell-systems/gcp-secret-manager-emulator:latest
-    # No IAM_ENABLED - defaults to false
+    # No IAM_MODE set - defaults to "off"
     # All requests succeed (backwards compatible)
     ports:
       - "9092:9090"
@@ -902,21 +1021,33 @@ func TestCrossServiceAuthorization(t *testing.T) {
 - [ ] Policy packs (optional imports)
 - [ ] Integration examples repository
 
+### Shared Auth Package (Prevents Drift)
+- [ ] Create `github.com/blackwell-systems/gcp-emulator-auth` module
+- [ ] Principal extractors (gRPC + HTTP)
+- [ ] Environment parsing (`IAM_MODE`, `IAM_EMULATOR_HOST`)
+- [ ] Minimal IAM client with timeout and modes
+- [ ] Error classification (connectivity vs config)
+- [ ] Common test helpers
+
+**Why separate package:**
+- Prevents copy/paste drift across emulators
+- No monorepo coupling (standard Go module)
+- Easy to version independently
+- Shared by all emulators (Secret Manager, KMS, future services)
+
 ### Secret Manager Emulator
-- [ ] IAM client implementation
-- [ ] Principal extraction from metadata/headers
-- [ ] Permission checks before operations
-- [ ] `IAM_EMULATOR_HOST` environment variable
-- [ ] Fail-closed error handling
+- [ ] Import `gcp-emulator-auth` package
+- [ ] Resource normalization functions
+- [ ] Permission mapping table
+- [ ] `IAM_MODE` support (`off`, `permissive`, `strict`)
 - [ ] Integration tests with IAM emulator
 - [ ] Docker Compose example
 
 ### KMS Emulator
-- [ ] IAM client implementation
-- [ ] Principal extraction from metadata/headers
-- [ ] Permission checks before operations
-- [ ] `IAM_EMULATOR_HOST` environment variable
-- [ ] Fail-closed error handling
+- [ ] Import `gcp-emulator-auth` package
+- [ ] Resource normalization functions
+- [ ] Permission mapping table
+- [ ] `IAM_MODE` support (`off`, `permissive`, `strict`)
 - [ ] Integration tests with IAM emulator
 - [ ] Docker Compose example
 
