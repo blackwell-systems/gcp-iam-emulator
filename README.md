@@ -168,14 +168,36 @@ services:
 
 **In-memory policy storage** with thread-safe concurrent access. **Simple permission engine** mapping roles to permissions. **Resource-level policies** (no organization/folder hierarchy in MVP). **No token minting** (pure policy evaluation only).
 
+## Roadmap
+
+**v0.2.0 (Next Release) - Drop-in CI Ready:**
+- Principal injection via gRPC metadata (`x-emulator-principal`)
+- Policy inheritance (resource hierarchy resolution)
+- YAML config file with hot reload
+- Trace mode (explain authz decisions)
+- Drop-in launch for CI/CD
+
+**v0.3.0 - Emulator Suite Integration:**
+- Secret Manager + KMS integration (shared auth layer)
+- Complete permission mappings
+- Docker Compose full-stack examples
+
+**v1.0.0 - Production-Ready:**
+- Enterprise stability + observability
+- Performance benchmarks (100k+ authz/sec)
+- Comprehensive documentation
+
+See [ROADMAP.md](docs/ROADMAP.md) for full details.
+
 ## Limitations (MVP)
 
+- No principal checking yet (v0.2.0 adds this)
+- No policy inheritance yet (v0.2.0 adds this)
 - No custom roles (primitive + service roles only)
 - No conditional role bindings
 - No organization/folder hierarchy
-- No service accounts or token minting (coming soon)
+- No service accounts or token minting
 - No audit logging
-- No permission inheritance
 
 **Current scope:** Core IAM policy operations for testing emulator integrations
 

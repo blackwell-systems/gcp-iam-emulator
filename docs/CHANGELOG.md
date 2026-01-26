@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned for v0.2.0 - Drop-in CI Ready
+- **Principal Injection**: Accept caller identity via gRPC metadata
+- **Policy Inheritance**: Walk resource hierarchy (secret → project)
+- **Config File**: YAML policy config with hot reload
+- **Trace Mode**: Explain authz decisions (allow/deny reasons)
+- **Drop-in Launch**: Simplified CLI + Docker one-liner
+
 ## [0.1.0] - 2026-01-26
 
 ### Added
