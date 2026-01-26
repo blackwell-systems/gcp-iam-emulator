@@ -9,6 +9,51 @@
 
 A production-grade IAM policy engine providing complete, behaviorally-accurate permission evaluation for local development and CI/CD. The missing auth layer for GCP emulators. No GCP credentials or network connectivity required.
 
+## Quick Example
+
+```yaml
+# policy.yaml - Define exactly what your tests need
+roles:
+  roles/custom.ciRunner:
+    permissions:
+      - secretmanager.secrets.get
+      - secretmanager.versions.access
+      - cloudkms.cryptoKeys.encrypt
+
+groups:
+  developers:
+    members:
+      - user:alice@example.com
+      - user:bob@example.com
+
+projects:
+  test-project:
+    bindings:
+      - role: roles/viewer
+        members:
+          - group:developers
+      
+      - role: roles/custom.ciRunner
+        members:
+          - serviceAccount:ci@test-project.iam.gserviceaccount.com
+        condition:
+          expression: 'resource.name.startsWith("projects/test-project/secrets/prod-")'
+          title: "CI limited to production secrets"
+```
+
+```bash
+# Start with strict mode (default - catches misconfigurations)
+server --config policy.yaml --trace
+
+# HTTP REST API
+server --config policy.yaml --http-port 8081
+
+# Hot reload on config changes
+server --config policy.yaml --watch
+```
+
+**Result:** Local IAM decisions matching your policy, offline testing of authorization logic, CI-ready without GCP credentials.
+
 ## Features
 
 - **Complete IAM Policy API** - SetIamPolicy, GetIamPolicy, TestIamPermissions (gRPC + REST)
