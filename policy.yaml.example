@@ -14,9 +14,33 @@ projects:
           - user:dev@example.com
           - serviceAccount:readonly@test-project.iam.gserviceaccount.com
       
+      # Conditional binding (v0.3.0+): CI can only access production secrets
       - role: roles/secretmanager.secretAccessor
         members:
           - serviceAccount:ci@test-project.iam.gserviceaccount.com
+        condition:
+          expression: 'resource.name.startsWith("projects/test-project/secrets/prod-")'
+          title: "Production secrets only"
+          description: "CI service account restricted to production secrets"
+      
+      # Time-based access (v0.3.0+): Temporary access expires at end of year
+      - role: roles/cloudkms.cryptoKeyEncrypterDecrypter
+        members:
+          - serviceAccount:temp-access@test-project.iam.gserviceaccount.com
+        condition:
+          expression: 'request.time < timestamp("2026-12-31T23:59:59Z")'
+          title: "Temporary access"
+          description: "Access expires December 31, 2026"
+    
+    # Optional: Audit logging configuration (v0.3.0+)
+    auditConfigs:
+      - service: secretmanager.googleapis.com
+        auditLogConfigs:
+          - logType: ADMIN_READ
+          - logType: DATA_READ
+          - logType: DATA_WRITE
+            exemptedMembers:
+              - serviceAccount:logging@test-project.iam.gserviceaccount.com
     
     # Resource-specific overrides
     resources:
@@ -28,9 +52,13 @@ projects:
       
       secrets/api-key:
         bindings:
+          # Resource type condition (v0.3.0+)
           - role: roles/secretmanager.admin
             members:
               - user:admin@example.com
+            condition:
+              expression: 'resource.type == "SECRET"'
+              title: "Secrets only"
       
       locations/global/keyRings/prod-keys/cryptoKeys/encryption-key:
         bindings:

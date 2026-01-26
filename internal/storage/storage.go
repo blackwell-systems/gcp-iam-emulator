@@ -1,6 +1,9 @@
 package storage
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -83,8 +86,30 @@ func (s *Storage) SetIamPolicy(resource string, policy *iampb.Policy) (*iampb.Po
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if policy.Version == 0 {
+		policy.Version = 1
+	}
+
+	if policy.Version == 3 {
+		for _, binding := range policy.Bindings {
+			if binding.Condition != nil {
+				if binding.Condition.Expression == "" {
+					return nil, fmt.Errorf("condition expression cannot be empty when version is 3")
+				}
+			}
+		}
+	}
+
+	policy.Etag = s.generateEtag(policy)
+
 	s.policies[resource] = policy
 	return policy, nil
+}
+
+func (s *Storage) generateEtag(policy *iampb.Policy) []byte {
+	data, _ := json.Marshal(policy)
+	hash := sha256.Sum256(data)
+	return []byte(base64.StdEncoding.EncodeToString(hash[:]))
 }
 
 func (s *Storage) LoadPolicies(policies map[string]*iampb.Policy) {
@@ -92,6 +117,10 @@ func (s *Storage) LoadPolicies(policies map[string]*iampb.Policy) {
 	defer s.mu.Unlock()
 
 	for resource, policy := range policies {
+		if policy.Version == 0 {
+			policy.Version = 1
+		}
+		policy.Etag = s.generateEtag(policy)
 		s.policies[resource] = policy
 	}
 }
@@ -123,9 +152,15 @@ func (s *Storage) TestIamPermissions(resource string, principal string, permissi
 		return []string{}, nil
 	}
 
+	evalCtx := EvalContext{
+		ResourceName: resource,
+		ResourceType: extractResourceType(resource),
+		RequestTime:  time.Now(),
+	}
+
 	allowed := []string{}
 	for _, perm := range permissions {
-		decision, reason := s.hasPermission(policy, principal, perm)
+		decision, reason := s.hasPermission(policy, principal, perm, evalCtx, trace)
 		if decision {
 			allowed = append(allowed, perm)
 			if trace {
@@ -158,7 +193,7 @@ func (s *Storage) resolvePolicy(resource string) *iampb.Policy {
 	return nil
 }
 
-func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permission string) (bool, string) {
+func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permission string, evalCtx EvalContext, trace bool) (bool, string) { //nolint:staticcheck // Using standard genproto package
 	rolePerms := map[string][]string{
 		"roles/owner": {
 			"secretmanager.secrets.get",
@@ -315,6 +350,16 @@ func (s *Storage) hasPermission(policy *iampb.Policy, principal string, permissi
 
 		for _, member := range binding.Members {
 			if s.principalMatches(principal, member) {
+				if binding.Condition != nil {
+					condResult, condReason := evaluateCondition(binding.Condition, evalCtx)
+					if trace {
+						slog.Info("condition evaluation", "resource", evalCtx.ResourceName, "principal", principal, "condition", binding.Condition.Expression, "result", condResult, "reason", condReason)
+					}
+					if !condResult {
+						return false, fmt.Sprintf("condition failed: %s", condReason)
+					}
+					return true, fmt.Sprintf("matched binding: role=%s member=%s condition=%s", binding.Role, member, condReason)
+				}
 				return true, fmt.Sprintf("matched binding: role=%s member=%s", binding.Role, member)
 			}
 		}
