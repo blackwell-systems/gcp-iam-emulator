@@ -18,6 +18,7 @@ type Storage struct {
 	projects         map[string]*Project
 	serviceAccounts  map[string]*ServiceAccount
 	policies         map[string]*iampb.Policy
+	groups           map[string][]string
 }
 
 type Project struct {
@@ -49,6 +50,7 @@ func NewStorage() *Storage {
 		projects:        make(map[string]*Project),
 		serviceAccounts: make(map[string]*ServiceAccount),
 		policies:        make(map[string]*iampb.Policy),
+		groups:          make(map[string][]string),
 	}
 }
 
@@ -123,6 +125,13 @@ func (s *Storage) LoadPolicies(policies map[string]*iampb.Policy) {
 		policy.Etag = s.generateEtag(policy)
 		s.policies[resource] = policy
 	}
+}
+
+func (s *Storage) LoadGroups(groups map[string][]string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.groups = groups
 }
 
 func (s *Storage) GetIamPolicy(resource string) (*iampb.Policy, error) {
@@ -377,6 +386,27 @@ func (s *Storage) principalMatches(principal, member string) bool {
 		return true
 	}
 
+	if strings.HasPrefix(member, "group:") {
+		groupName := strings.TrimPrefix(member, "group:")
+		if groupMembers, exists := s.groups[groupName]; exists {
+			for _, groupMember := range groupMembers {
+				if groupMember == principal {
+					return true
+				}
+				if strings.HasPrefix(groupMember, "group:") {
+					nestedGroupName := strings.TrimPrefix(groupMember, "group:")
+					if nestedMembers, nestedExists := s.groups[nestedGroupName]; nestedExists {
+						for _, nestedMember := range nestedMembers {
+							if nestedMember == principal {
+								return true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	return false
 }
 
@@ -386,4 +416,5 @@ func (s *Storage) Clear() {
 	s.projects = make(map[string]*Project)
 	s.serviceAccounts = make(map[string]*ServiceAccount)
 	s.policies = make(map[string]*iampb.Policy)
+	s.groups = make(map[string][]string)
 }

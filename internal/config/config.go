@@ -11,6 +11,11 @@ import (
 
 type Config struct {
 	Projects map[string]ProjectConfig `yaml:"projects"`
+	Groups   map[string]GroupConfig   `yaml:"groups,omitempty"`
+}
+
+type GroupConfig struct {
+	Members []string `yaml:"members"`
 }
 
 type ProjectConfig struct {

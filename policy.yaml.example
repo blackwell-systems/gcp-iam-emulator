@@ -1,6 +1,24 @@
 # Example policy configuration for GCP IAM Emulator
 # Load with: server --config policy.yaml
 
+# Groups (v0.3.0+): Define reusable groups of principals
+groups:
+  developers:
+    members:
+      - user:alice@example.com
+      - user:bob@example.com
+      - serviceAccount:dev-bot@test-project.iam.gserviceaccount.com
+  
+  operators:
+    members:
+      - user:ops@example.com
+      - group:oncall  # Nested group (1 level supported)
+  
+  oncall:
+    members:
+      - user:charlie@example.com
+      - user:diana@example.com
+
 projects:
   test-project:
     # Project-level bindings (inherited by all resources)
@@ -11,7 +29,7 @@ projects:
       
       - role: roles/viewer
         members:
-          - user:dev@example.com
+          - group:developers  # Group reference (v0.3.0+)
           - serviceAccount:readonly@test-project.iam.gserviceaccount.com
       
       # Conditional binding (v0.3.0+): CI can only access production secrets
@@ -88,6 +106,7 @@ projects:
 # Supported member formats:
 # - user:email@example.com
 # - serviceAccount:name@project.iam.gserviceaccount.com
+# - group:group-name (v0.3.0+)
 # - allUsers
 # - allAuthenticatedUsers
 

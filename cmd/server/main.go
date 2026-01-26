@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,15 +14,20 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/config"
+	"github.com/blackwell-systems/gcp-iam-emulator/internal/rest"
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/server"
+	"github.com/blackwell-systems/gcp-iam-emulator/internal/storage"
 )
 
 var (
-	port       = flag.Int("port", 8080, "Port to listen on")
-	configFile = flag.String("config", "", "Path to policy config file (YAML)")
-	watch      = flag.Bool("watch", false, "Watch config file for changes and hot reload")
-	trace      = flag.Bool("trace", false, "Enable trace mode (log authz decisions)")
-	version    = "0.2.0-dev"
+	port        = flag.Int("port", 8080, "Port to listen on")
+	httpPort    = flag.Int("http-port", 0, "HTTP REST port (0 = disabled)")
+	configFile  = flag.String("config", "", "Path to policy config file (YAML)")
+	watch       = flag.Bool("watch", false, "Watch config file for changes and hot reload")
+	trace       = flag.Bool("trace", false, "Enable trace mode (log authz decisions)")
+	explain     = flag.Bool("explain", false, "Enable verbose trace output (implies --trace)")
+	traceOutput = flag.String("trace-output", "", "Output file for JSON trace logs (implies --trace)")
+	version     = "0.3.0-dev"
 )
 
 func main() {
@@ -29,8 +35,20 @@ func main() {
 
 	log.Printf("GCP IAM Emulator v%s", version)
 
+	enableTrace := *trace || *explain || *traceOutput != ""
+	
 	iamServer := server.NewServer()
-	iamServer.SetTrace(*trace)
+	iamServer.SetTrace(enableTrace)
+	
+	if *explain {
+		iamServer.SetExplain(true)
+	}
+	
+	if *traceOutput != "" {
+		if err := iamServer.SetTraceOutput(*traceOutput); err != nil {
+			log.Fatalf("Failed to set trace output: %v", err)
+		}
+	}
 
 	if *configFile != "" {
 		if err := loadConfig(*configFile, iamServer); err != nil {
@@ -42,8 +60,18 @@ func main() {
 		}
 	}
 
-	if *trace {
+	if enableTrace {
 		log.Printf("Trace mode: ENABLED (authz decisions will be logged)")
+		if *explain {
+			log.Printf("Explain mode: ENABLED (verbose trace output)")
+		}
+		if *traceOutput != "" {
+			log.Printf("Trace output: %s (JSON format)", *traceOutput)
+		}
+	}
+
+	if *httpPort > 0 {
+		go startHTTPServer(*httpPort, iamServer.GetStorage(), *trace)
 	}
 
 	log.Printf("Starting gRPC server on port %d", *port)
@@ -67,6 +95,25 @@ func main() {
 	}
 }
 
+func startHTTPServer(port int, store *storage.Storage, trace bool) {
+	restServer := rest.NewServer(store, trace)
+	
+	mux := http.NewServeMux()
+	restServer.RegisterHandlers(mux)
+	
+	addr := fmt.Sprintf(":%d", port)
+	log.Printf("Starting HTTP REST server on port %d", port)
+	
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	
+	if err := httpServer.ListenAndServe(); err != nil {
+		log.Printf("HTTP server error: %v", err)
+	}
+}
+
 func loadConfig(path string, iamServer *server.Server) error {
 	log.Printf("Loading policy config from %s", path)
 	cfg, err := config.LoadFromFile(path)
@@ -77,6 +124,16 @@ func loadConfig(path string, iamServer *server.Server) error {
 	policies := cfg.ToPolicies()
 	iamServer.LoadPolicies(policies)
 	log.Printf("Loaded %d policies from config", len(policies))
+	
+	if len(cfg.Groups) > 0 {
+		groups := make(map[string][]string)
+		for groupName, groupCfg := range cfg.Groups {
+			groups[groupName] = groupCfg.Members
+		}
+		iamServer.LoadGroups(groups)
+		log.Printf("Loaded %d groups from config", len(groups))
+	}
+	
 	return nil
 }
 

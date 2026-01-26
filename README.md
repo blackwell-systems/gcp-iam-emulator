@@ -11,8 +11,12 @@ A production-grade IAM policy engine providing complete, behaviorally-accurate p
 
 ## Features
 
-- **Complete IAM Policy API** - SetIamPolicy, GetIamPolicy, TestIamPermissions
+- **Complete IAM Policy API** - SetIamPolicy, GetIamPolicy, TestIamPermissions (gRPC + REST)
 - **Real Permission Evaluation** - Accurate role-to-permission mapping
+- **Conditional Bindings** - CEL expression support for resource-based access control
+- **Groups Support** - Define reusable groups with nested membership (1 level)
+- **Policy Schema v3** - Full support for etag, version, auditConfigs, conditions
+- **Enhanced Trace Mode** - JSON output, verbose logging, duration metrics
 - **Primitive Roles** - owner, editor, viewer support
 - **Service-Specific Roles** - Secret Manager, KMS, and more
 - **No GCP Credentials** - Works entirely offline without authentication
@@ -104,6 +108,15 @@ server --config policy.yaml
 
 # Enable trace mode for debugging
 server --config policy.yaml --trace
+
+# Enable HTTP REST API
+server --config policy.yaml --http-port 8081
+
+# Enable verbose trace with JSON output
+server --config policy.yaml --explain --trace-output trace.json
+
+# Hot reload policies on file changes
+server --config policy.yaml --watch
 ```
 
 **Docker:**
@@ -315,6 +328,161 @@ level=INFO msg="authz decision" decision=DENY principal=user:dev@example.com res
 - Debug policy inheritance
 - Verify principal matching
 - Audit authz decisions in local testing
+
+**Enhanced trace mode (v0.3.0+):**
+
+```bash
+# Verbose logging with --explain
+server --config policy.yaml --explain
+
+# JSON output to file
+server --config policy.yaml --trace-output trace.json
+```
+
+**JSON trace format:**
+```json
+{
+  "time":"2026-01-26T10:30:15Z",
+  "level":"INFO",
+  "msg":"permission_check",
+  "resource":"projects/test/secrets/api-key",
+  "principal":"serviceAccount:ci@test.iam.gserviceaccount.com",
+  "allowed_permissions":["secretmanager.versions.access"],
+  "duration_ms":2,
+  "timestamp":"2026-01-26T10:30:15Z"
+}
+```
+
+## v0.3.0 Features
+
+### Conditional Bindings
+
+Use CEL expressions to restrict access based on resource properties:
+
+```yaml
+projects:
+  test-project:
+    bindings:
+      # CI can only access production secrets
+      - role: roles/secretmanager.secretAccessor
+        members:
+          - serviceAccount:ci@test-project.iam.gserviceaccount.com
+        condition:
+          expression: 'resource.name.startsWith("projects/test-project/secrets/prod-")'
+          title: "Production secrets only"
+          description: "CI service account restricted to production secrets"
+      
+      # Time-based access
+      - role: roles/cloudkms.cryptoKeyEncrypterDecrypter
+        members:
+          - serviceAccount:temp-access@test-project.iam.gserviceaccount.com
+        condition:
+          expression: 'request.time < timestamp("2026-12-31T23:59:59Z")'
+          title: "Temporary access"
+```
+
+**Supported CEL expressions:**
+- `resource.name.startsWith("prefix")` - Match resource name prefix
+- `resource.type == "SECRET"` - Match resource type (SECRET, CRYPTO_KEY, KEY_RING)
+- `request.time < timestamp("2026-12-31T00:00:00Z")` - Time-based access
+
+### Groups Support
+
+Define reusable groups to reduce duplication:
+
+```yaml
+groups:
+  developers:
+    members:
+      - user:alice@example.com
+      - user:bob@example.com
+      - serviceAccount:dev-bot@test-project.iam.gserviceaccount.com
+  
+  operators:
+    members:
+      - user:ops@example.com
+      - group:oncall  # Nested groups (1 level supported)
+  
+  oncall:
+    members:
+      - user:charlie@example.com
+      - user:diana@example.com
+
+projects:
+  test-project:
+    bindings:
+      - role: roles/viewer
+        members:
+          - group:developers  # Reference group
+```
+
+### REST API
+
+HTTP REST gateway for all IAM operations:
+
+```bash
+# Start with REST API
+server --config policy.yaml --http-port 8081
+```
+
+**Example requests:**
+
+```bash
+# Set IAM policy
+curl -X POST http://localhost:8081/v1/projects/test-project:setIamPolicy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policy": {
+      "bindings": [{
+        "role": "roles/viewer",
+        "members": ["user:dev@example.com"]
+      }]
+    }
+  }'
+
+# Get IAM policy
+curl http://localhost:8081/v1/projects/test-project:getIamPolicy
+
+# Test permissions
+curl -X POST http://localhost:8081/v1/projects/test-project/secrets/api-key:testIamPermissions \
+  -H "Content-Type: application/json" \
+  -H "X-Emulator-Principal: serviceAccount:ci@test.iam.gserviceaccount.com" \
+  -d '{
+    "permissions": [
+      "secretmanager.versions.access",
+      "secretmanager.secrets.delete"
+    ]
+  }'
+```
+
+**Response:**
+```json
+{
+  "permissions": ["secretmanager.versions.access"]
+}
+```
+
+### Policy Schema v3
+
+Full support for IAM Policy v3 features:
+
+- **etag** - Optimistic concurrency control (SHA256-based)
+- **version** - Policy format version (1=basic, 3=with conditions)
+- **auditConfigs** - Audit logging configuration
+- **bindings[].condition** - Conditional role bindings
+
+```yaml
+projects:
+  test-project:
+    auditConfigs:
+      - service: secretmanager.googleapis.com
+        auditLogConfigs:
+          - logType: ADMIN_READ
+          - logType: DATA_READ
+          - logType: DATA_WRITE
+            exemptedMembers:
+              - serviceAccount:logging@test-project.iam.gserviceaccount.com
+```
 
 ## Architecture
 

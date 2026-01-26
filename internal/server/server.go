@@ -2,7 +2,11 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+	"os"
 	"strings"
+	"time"
 
 	iampb "google.golang.org/genproto/googleapis/iam/v1" //nolint:staticcheck // Using standard genproto package
 	"google.golang.org/grpc/codes"
@@ -14,14 +18,18 @@ import (
 
 type Server struct {
 	iampb.UnimplementedIAMPolicyServer
-	storage *storage.Storage
-	trace   bool
+	storage     *storage.Storage
+	trace       bool
+	explain     bool
+	traceFile   *os.File
+	traceLogger *slog.Logger
 }
 
 func NewServer() *Server {
 	return &Server{
 		storage: storage.NewStorage(),
 		trace:   false,
+		explain: false,
 	}
 }
 
@@ -29,8 +37,46 @@ func (s *Server) SetTrace(trace bool) {
 	s.trace = trace
 }
 
+func (s *Server) SetExplain(explain bool) {
+	s.explain = explain
+}
+
+func (s *Server) SetTraceOutput(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create trace output file: %w", err)
+	}
+	
+	s.traceFile = f
+	s.traceLogger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	
+	return nil
+}
+
 func (s *Server) LoadPolicies(policies map[string]*iampb.Policy) { //nolint:staticcheck // Using standard genproto package
 	s.storage.LoadPolicies(policies)
+}
+
+func (s *Server) LoadGroups(groups map[string][]string) {
+	s.storage.LoadGroups(groups)
+}
+
+func (s *Server) GetStorage() *storage.Storage {
+	return s.storage
+}
+
+func (s *Server) logTrace(resource, principal string, allowed []string, duration time.Duration) {
+	if s.traceLogger != nil {
+		s.traceLogger.Info("permission_check",
+			"resource", resource,
+			"principal", principal,
+			"allowed_permissions", allowed,
+			"duration_ms", duration.Milliseconds(),
+			"timestamp", time.Now().Format(time.RFC3339),
+		)
+	}
 }
 
 func (s *Server) extractPrincipal(ctx context.Context) string {
@@ -91,10 +137,15 @@ func (s *Server) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermi
 
 	principal := s.extractPrincipal(ctx)
 
-	allowed, err := s.storage.TestIamPermissions(req.Resource, principal, req.Permissions, s.trace)
+	start := time.Now()
+	allowed, err := s.storage.TestIamPermissions(req.Resource, principal, req.Permissions, s.trace || s.explain)
+	duration := time.Since(start)
+	
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+
+	s.logTrace(req.Resource, principal, allowed, duration)
 
 	return &iampb.TestIamPermissionsResponse{ //nolint:staticcheck // Using standard genproto package
 		Permissions: allowed,
