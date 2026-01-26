@@ -19,7 +19,10 @@ func TestResourceHierarchyInheritance(t *testing.T) {
 		},
 	}
 
-	s.SetIamPolicy("projects/test-project", projectPolicy)
+	_, err := s.SetIamPolicy("projects/test-project", projectPolicy)
+	if err != nil {
+		t.Fatalf("SetIamPolicy failed: %v", err)
+	}
 
 	allowed, err := s.TestIamPermissions(
 		"projects/test-project/secrets/db-password",
@@ -53,7 +56,10 @@ func TestResourceOverridesParent(t *testing.T) {
 			},
 		},
 	}
-	s.SetIamPolicy("projects/test-project", projectPolicy)
+	_, err := s.SetIamPolicy("projects/test-project", projectPolicy)
+	if err != nil {
+		t.Fatalf("SetIamPolicy failed: %v", err)
+	}
 
 	secretPolicy := &iampb.Policy{
 		Version: 1,
@@ -64,7 +70,10 @@ func TestResourceOverridesParent(t *testing.T) {
 			},
 		},
 	}
-	s.SetIamPolicy("projects/test-project/secrets/db-password", secretPolicy)
+	_, err = s.SetIamPolicy("projects/test-project/secrets/db-password", secretPolicy)
+	if err != nil {
+		t.Fatalf("SetIamPolicy failed: %v", err)
+	}
 
 	allowed, err := s.TestIamPermissions(
 		"projects/test-project/secrets/db-password",

@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	iampb "google.golang.org/genproto/googleapis/iam/v1"
+	iampb "google.golang.org/genproto/googleapis/iam/v1" //nolint:staticcheck // Using standard genproto package
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"

@@ -10,6 +10,7 @@ require (
 
 require (
 	cloud.google.com/go/iam v1.5.3 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/text v0.31.0 // indirect

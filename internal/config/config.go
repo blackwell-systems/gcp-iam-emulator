@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	iampb "google.golang.org/genproto/googleapis/iam/v1"
+	iampb "google.golang.org/genproto/googleapis/iam/v1" //nolint:staticcheck // Using standard genproto package
 	"gopkg.in/yaml.v3"
 )
 
