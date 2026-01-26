@@ -17,8 +17,8 @@ A production-grade IAM policy engine providing complete, behaviorally-accurate p
 - **Groups Support** - Define reusable groups with nested membership (1 level)
 - **Policy Schema v3** - Full support for etag, version, auditConfigs, conditions
 - **Enhanced Trace Mode** - JSON output, verbose logging, duration metrics
-- **Primitive Roles** - owner, editor, viewer support
-- **Service-Specific Roles** - Secret Manager, KMS, and more
+- **Custom Roles** - Define any GCP permission in YAML (extensible, not hardcoded)
+- **Small Built-in Core** - Primitive roles + Secret Manager + KMS (bootstrap only)
 - **No GCP Credentials** - Works entirely offline without authentication
 - **Fast & Lightweight** - In-memory storage, starts in milliseconds
 - **Thread-Safe** - Concurrent access with proper synchronization
@@ -568,22 +568,20 @@ server --config policy.yaml --allow-unknown-roles
 
 ## Roadmap
 
-**v0.2.0 (Next Release) - Drop-in CI Ready:**
-- Principal injection via gRPC metadata (`x-emulator-principal`)
-- Policy inheritance (resource hierarchy resolution)
-- YAML config file with hot reload
-- Trace mode (explain authz decisions)
-- Drop-in launch for CI/CD
+**Future Considerations:**
 
-**v0.3.0 - Emulator Suite Integration:**
-- Secret Manager + KMS integration (shared auth layer)
-- Complete permission mappings
-- Docker Compose full-stack examples
+**Role Packs (optional convenience):**
+- Optional import packs like `packs/pubsub.yaml`, `packs/bigquery.yaml`
+- Users import only what they need
+- Community-maintained, not hardcoded in emulator
+- Example: `roles: !include packs/storage.yaml`
 
-**v1.0.0 - Production-Ready:**
-- Enterprise stability + observability
-- Performance benchmarks (100k+ authz/sec)
-- Comprehensive documentation
+**NOT planned:**
+- ❌ Large built-in permission database (creates maintenance hell)
+- ❌ Auto-syncing with GCP IAM API (adds network dependency)
+- ❌ Perfect GCP IAM fidelity (not the goal)
+
+**Strategy:** Keep the emulator **focused and sustainable**. Users define what they need via custom roles. The built-in set stays small (primitives + Secret Manager + KMS only).
 
 See [ROADMAP.md](docs/ROADMAP.md) for full details.
 
