@@ -31,30 +31,52 @@ A production-grade IAM policy engine providing complete, behaviorally-accurate p
 
 **Primitive roles:**
 - `roles/owner` - Full access to all resources
-- `roles/editor` - Read/write access (no IAM management)
+- `roles/editor` - Read/write access (no IAM management, no delete)
 - `roles/viewer` - Read-only access
 
 **Secret Manager roles:**
 - `roles/secretmanager.admin` - Full secret management
 - `roles/secretmanager.secretAccessor` - Read secret values only
+- `roles/secretmanager.secretVersionManager` - Manage versions (add, enable, disable, destroy)
 
 **KMS roles:**
 - `roles/cloudkms.admin` - Full KMS management
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter` - Encrypt/decrypt only
+- `roles/cloudkms.viewer` - Read-only KMS access
 
 ### Supported Permissions
 
-**Secret Manager:**
-- `secretmanager.secrets.get`
-- `secretmanager.secrets.create`
-- `secretmanager.secrets.delete`
-- `secretmanager.versions.access`
+**Secret Manager (12 permissions):**
+- `secretmanager.secrets.get` - Get secret metadata
+- `secretmanager.secrets.create` - Create new secrets
+- `secretmanager.secrets.update` - Update secret metadata
+- `secretmanager.secrets.delete` - Delete secrets
+- `secretmanager.secrets.list` - List secrets
+- `secretmanager.versions.add` - Add new secret versions
+- `secretmanager.versions.get` - Get version metadata
+- `secretmanager.versions.access` - Read secret values
+- `secretmanager.versions.list` - List versions
+- `secretmanager.versions.enable` - Enable versions
+- `secretmanager.versions.disable` - Disable versions
+- `secretmanager.versions.destroy` - Destroy versions
 
-**KMS:**
-- `cloudkms.cryptoKeys.get`
-- `cloudkms.cryptoKeys.encrypt`
-- `cloudkms.cryptoKeys.decrypt`
-- `cloudkms.cryptoKeyVersions.create`
+**KMS (14 permissions):**
+- `cloudkms.keyRings.create` - Create key rings
+- `cloudkms.keyRings.get` - Get key ring metadata
+- `cloudkms.keyRings.list` - List key rings
+- `cloudkms.cryptoKeys.create` - Create crypto keys
+- `cloudkms.cryptoKeys.get` - Get key metadata
+- `cloudkms.cryptoKeys.list` - List keys
+- `cloudkms.cryptoKeys.update` - Update key metadata
+- `cloudkms.cryptoKeys.encrypt` - Encrypt data
+- `cloudkms.cryptoKeys.decrypt` - Decrypt data
+- `cloudkms.cryptoKeyVersions.create` - Create key versions
+- `cloudkms.cryptoKeyVersions.get` - Get version metadata
+- `cloudkms.cryptoKeyVersions.list` - List versions
+- `cloudkms.cryptoKeyVersions.update` - Update version state
+- `cloudkms.cryptoKeyVersions.destroy` - Destroy versions
+
+**Total:** 10 roles, 26 permissions (complete coverage of emulator operations)
 
 ## Quick Start
 
