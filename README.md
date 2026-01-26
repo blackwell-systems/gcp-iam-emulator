@@ -577,9 +577,9 @@ server --config policy.yaml --allow-unknown-roles
 - Example: `roles: !include packs/storage.yaml`
 
 **NOT planned:**
-- ❌ Large built-in permission database (creates maintenance hell)
-- ❌ Auto-syncing with GCP IAM API (adds network dependency)
-- ❌ Perfect GCP IAM fidelity (not the goal)
+- Large built-in permission database (creates maintenance hell)
+- Auto-syncing with GCP IAM API (adds network dependency)
+- Perfect GCP IAM fidelity (not the goal)
 
 **Strategy:** Keep the emulator **focused and sustainable**. Users define what they need via custom roles. The built-in set stays small (primitives + Secret Manager + KMS only).
 
