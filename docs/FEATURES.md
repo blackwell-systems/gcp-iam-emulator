@@ -254,9 +254,52 @@ curl -X POST http://localhost:8081/v1/projects/test-project:setIamPolicy \
 - Standard HTTP status codes (400, 404, 500, etc.)
 - JSON error format with gRPC code + message
 
-## Roles & Permissions (v0.1.0)
+## Custom Roles (v0.4.0)
 
-**Status:** ✓ Complete (MVP set)
+**Status:** ✓ Complete
+
+### Extensible Role System
+- Define custom role-to-permission mappings in YAML
+- Support for ANY GCP service (BigQuery, Pub/Sub, Storage, etc.)
+- Override built-in roles with custom definitions
+- Thread-safe loading and storage
+
+### Example
+```yaml
+roles:
+  roles/custom.dataReader:
+    permissions:
+      - bigquery.datasets.get
+      - bigquery.tables.list
+      - bigquery.tables.getData
+  
+  roles/custom.pubsubPublisher:
+    permissions:
+      - pubsub.topics.publish
+      - pubsub.topics.get
+```
+
+### Strict Mode (Default)
+- Unknown roles are DENIED
+- Prevents overly permissive tests
+- Catches misconfigurations early
+- Forces explicit role definitions
+
+### Compat Mode (Opt-in)
+- `--allow-unknown-roles` flag enables wildcard matching
+- Unknown roles match by service prefix
+- Example: `roles/secretmanager.customRole` grants `secretmanager.*`
+- Less strict, useful for migration scenarios
+
+### Decision Order
+1. Custom roles (highest priority)
+2. Built-in roles (bootstrap set)
+3. Wildcard match (only in compat mode)
+4. Deny (strict mode default)
+
+## Built-in Roles (Bootstrap Only)
+
+**Status:** ✓ Complete (intentionally small)
 
 ### Primitive Roles
 - `roles/owner`: Full access to all resources
@@ -266,26 +309,16 @@ curl -X POST http://localhost:8081/v1/projects/test-project:setIamPolicy \
 ### Secret Manager Roles
 - `roles/secretmanager.admin`: Full secret management
 - `roles/secretmanager.secretAccessor`: Read secret values only
+- `roles/secretmanager.secretVersionManager`: Manage versions
 
 ### KMS Roles
 - `roles/cloudkms.admin`: Full KMS management
 - `roles/cloudkms.cryptoKeyEncrypterDecrypter`: Encrypt/decrypt only
+- `roles/cloudkms.viewer`: Read-only KMS access
 
-### Permission Mappings
+**Total:** 10 built-in roles, 26 permissions
 
-**Secret Manager:**
-- `secretmanager.secrets.get`
-- `secretmanager.secrets.create`
-- `secretmanager.secrets.delete`
-- `secretmanager.versions.access`
-
-**KMS:**
-- `cloudkms.cryptoKeys.get`
-- `cloudkms.cryptoKeys.encrypt`
-- `cloudkms.cryptoKeys.decrypt`
-- `cloudkms.cryptoKeyVersions.create`
-
-**Total:** 7 roles, 8 permissions
+**Strategy:** Small built-in set for bootstrap. Users define what they need via custom roles.
 
 ## CLI & Launch (v0.2.0)
 
@@ -299,6 +332,7 @@ curl -X POST http://localhost:8081/v1/projects/test-project:setIamPolicy \
 - `--explain`: Enable verbose trace output (implies --trace)
 - `--trace-output <path>`: Output file for JSON trace logs
 - `--watch`: Watch config file for changes and hot reload
+- `--allow-unknown-roles`: Enable wildcard role matching (compat mode)
 
 ### Launch Examples
 ```bash
@@ -390,24 +424,15 @@ docker run -p 8080:8080 gcp-iam-emulator --trace
 - SIGHUP signal handling
 - Dynamic policy updates without restart
 
-**REST API (v0.3.0):**
-- HTTP/JSON gateway
-- REST-native clients
-- Dual protocol support (gRPC + REST)
-
-**Custom Roles (future):**
-- User-defined role-to-permission mappings
-- Config file role definitions
-
-**Conditional Bindings (v0.4.0):**
-- CEL expression evaluation
-- Time-based conditions
-- Resource-based conditions
-
-**Workload Identity (v0.4.0):**
+**Workload Identity (future):**
 - `principalSet://` member format
 - Federated identity patterns
 - Kubernetes workload identity
+
+**Role Packs (future):**
+- Optional import packs (e.g., `packs/pubsub.yaml`, `packs/bigquery.yaml`)
+- Community-maintained, not built-in
+- Users import only what they need
 
 **Service Account Management (out of scope):**
 - No service account CRUD
@@ -423,27 +448,36 @@ docker run -p 8080:8080 gcp-iam-emulator --trace
 
 ## Feature Comparison Matrix
 
-| Feature | v0.1.0 | v0.2.0 | v0.3.0 | v1.0.0 (planned) |
-|---------|--------|--------|--------|------------------|
-| SetIamPolicy | ✓ | ✓ | ✓ | ✓ |
-| GetIamPolicy | ✓ | ✓ | ✓ | ✓ |
-| TestIamPermissions | ✓ | ✓ | ✓ | ✓ |
-| Principal injection | - | ✓ | ✓ | ✓ |
-| Policy inheritance | - | ✓ | ✓ | ✓ |
-| Config file | - | ✓ | ✓ | ✓ |
-| Trace mode | - | ✓ | ✓ | ✓ |
-| Hot reload | - | ✓ | ✓ | ✓ |
-| REST API | - | - | ✓ | ✓ |
-| Conditional bindings | - | - | ✓ | ✓ |
-| Groups support | - | - | ✓ | ✓ |
-| Policy Schema v3 | - | - | ✓ | ✓ |
-| Enhanced trace mode | - | - | ✓ | ✓ |
-| Metrics/observability | - | - | - | ✓ |
-| Emulator integration | - | - | - | ✓ |
+| Feature | v0.1.0 | v0.2.0 | v0.3.0 | v0.4.0 | v1.0.0 (planned) |
+|---------|--------|--------|--------|--------|------------------|
+| SetIamPolicy | ✓ | ✓ | ✓ | ✓ | ✓ |
+| GetIamPolicy | ✓ | ✓ | ✓ | ✓ | ✓ |
+| TestIamPermissions | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Principal injection | - | ✓ | ✓ | ✓ | ✓ |
+| Policy inheritance | - | ✓ | ✓ | ✓ | ✓ |
+| Config file | - | ✓ | ✓ | ✓ | ✓ |
+| Trace mode | - | ✓ | ✓ | ✓ | ✓ |
+| Hot reload | - | ✓ | ✓ | ✓ | ✓ |
+| REST API | - | - | ✓ | ✓ | ✓ |
+| Conditional bindings | - | - | ✓ | ✓ | ✓ |
+| Groups support | - | - | ✓ | ✓ | ✓ |
+| Policy Schema v3 | - | - | ✓ | ✓ | ✓ |
+| Enhanced trace mode | - | - | ✓ | ✓ | ✓ |
+| Custom roles | - | - | - | ✓ | ✓ |
+| Strict mode | - | - | - | ✓ | ✓ |
+| Metrics/observability | - | - | - | - | ✓ |
+| Emulator integration | - | - | - | - | ✓ |
 
 ---
 
 ## Version History
+
+### v0.4.0 (2026-01-26)
+- Custom roles system (extensible, any GCP service)
+- Strict mode by default (unknown roles denied)
+- Compat mode opt-in (--allow-unknown-roles for wildcard matching)
+- Sustainable permission strategy (small built-in core)
+- Comprehensive tests for strict/compat modes
 
 ### v0.3.0 (2026-01-26)
 - Conditional bindings with CEL expression support
