@@ -1019,23 +1019,29 @@ func TestCrossServiceAuthorization(t *testing.T) {
 ## Implementation Checklist
 
 ### IAM Emulator (this repo)
-- [x] Core IAM Policy API
+- [x] Core IAM Policy API (v0.5.0)
 - [x] Principal injection (gRPC + REST)
 - [x] Custom roles system
-- [x] Conditional bindings
+- [x] Conditional bindings with CEL
 - [x] Groups support
-- [x] Strict mode
-- [x] Trace mode
-- [ ] Policy packs (optional imports)
-- [ ] Integration examples repository
+- [x] Strict mode (fail-closed)
+- [x] Trace mode (--trace flag)
+- [x] Integration contract specification
+- [x] Implementation checklist for new emulators
+- [x] CHANGELOG.md documenting all releases
+- [x] Health check endpoint (/health)
+- [ ] Policy packs (optional imports - future)
+- [ ] Integration examples repository (future)
 
 ### Shared Auth Package (Prevents Drift)
-- [x] Create `github.com/blackwell-systems/gcp-emulator-auth` module
+- [x] Create `github.com/blackwell-systems/gcp-emulator-auth` module (v0.1.1)
 - [x] Principal extractors (gRPC + HTTP)
 - [x] Environment parsing (`IAM_MODE`, `IAM_HOST`)
 - [x] Minimal IAM client with timeout and modes
 - [x] Error classification (connectivity vs config)
-- [ ] Common test helpers
+- [x] Fail-open vs fail-closed logic
+- [x] CHANGELOG.md with version history
+- [ ] Common test helpers (future)
 
 **Why separate package:**
 - Prevents copy/paste drift across emulators
@@ -1044,36 +1050,43 @@ func TestCrossServiceAuthorization(t *testing.T) {
 - Shared by all emulators (Secret Manager, KMS, future services)
 
 ### Secret Manager Emulator
-- [ ] Import `gcp-emulator-auth` package
-- [ ] Resource normalization functions
-- [ ] Permission mapping table
-- [ ] `IAM_MODE` support (`off`, `permissive`, `strict`)
-- [ ] Integration tests with IAM emulator
-- [ ] Docker Compose example
-
-### KMS Emulator
-- [x] Import `gcp-emulator-auth` package
+- [x] Import `gcp-emulator-auth` package (v1.2.0)
 - [x] Resource normalization functions
-- [x] Permission mapping table
+- [x] Permission mapping table (all 12 operations)
 - [x] `IAM_MODE` support (`off`, `permissive`, `strict`)
 - [x] Integration tests with IAM emulator
 - [x] Docker Compose example
+- [x] README documentation with IAM section
+- [x] CHANGELOG.md with v1.2.0 release notes
+
+### KMS Emulator
+- [x] Import `gcp-emulator-auth` package (v0.2.0)
+- [x] Resource normalization functions
+- [x] Permission mapping table (all 8 operations)
+- [x] `IAM_MODE` support (`off`, `permissive`, `strict`)
+- [x] Integration tests with IAM emulator
+- [x] Docker Compose example
+- [x] README documentation with IAM section
+- [x] CHANGELOG.md with v0.2.0 release notes
 
 ### Control Plane Repository
-- [x] Create `gcp-emulator-control-plane` repository
+- [x] Create `gcp-emulator-control-plane` repository (v0.1.0)
 - [x] Docker Compose orchestration (IAM + Secret Manager + KMS)
 - [x] Single policy.yaml configuration
 - [x] Policy packs (secretmanager.yaml, kms.yaml, ci.yaml)
 - [x] Curl examples for testing
 - [x] Integration contract documentation
-- [ ] Go client examples
+- [x] Go client examples (in END_TO_END_TUTORIAL.md)
+- [x] CHANGELOG.md documenting v0.1.0 release
 
 ### Documentation
-- [x] Integration contract specification
-- [ ] End-to-end tutorial
-- [ ] Migration guide for existing deployments
+- [x] Integration contract specification (INTEGRATION_CONTRACT.md)
+- [x] End-to-end tutorial (END_TO_END_TUTORIAL.md - 11 parts, 30 minutes)
+- [x] Migration guide for existing deployments (MIGRATION.md - 3 strategies)
+- [x] Architecture documentation (ARCHITECTURE.md - complete system design)
+- [x] Troubleshooting guide (TROUBLESHOOTING.md - debugging tools)
 - [x] Policy packs (secretmanager, kms, ci)
-- [ ] Blog post: "Building a coherent GCP emulator mesh"
+- [ ] Blog post: "Building a coherent GCP emulator mesh" (optional)
 
 ---
 
