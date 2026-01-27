@@ -1,0 +1,13 @@
+# Code owners for GCP IAM Emulator
+# These owners will be automatically requested for review when PRs are opened
+
+# Default owner for everything in the repo
+* @blackwell-systems
+
+# Specific ownership for critical files
+/.github/ @blackwell-systems
+/internal/server/ @blackwell-systems
+/internal/storage/ @blackwell-systems
+/internal/config/ @blackwell-systems
+/ARCHITECTURE.md @blackwell-systems
+/API-REFERENCE.md @blackwell-systems
