@@ -80,6 +80,9 @@ func main() {
 
 	if *httpPort > 0 {
 		go startHTTPServer(*httpPort, iamServer.GetStorage(), *trace)
+	} else {
+		// Start minimal HTTP server for health checks on gRPC port + 1000
+		go startHealthServer(*port + 1000)
 	}
 
 	log.Printf("Starting gRPC server on port %d", *port)
@@ -109,6 +112,12 @@ func startHTTPServer(port int, store *storage.Storage, trace bool) {
 	mux := http.NewServeMux()
 	restServer.RegisterHandlers(mux)
 	
+	// Add health endpoint
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status":"healthy"}`)
+	})
+	
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Starting HTTP REST server on port %d", port)
 	
@@ -119,6 +128,26 @@ func startHTTPServer(port int, store *storage.Storage, trace bool) {
 	
 	if err := httpServer.ListenAndServe(); err != nil {
 		log.Printf("HTTP server error: %v", err)
+	}
+}
+
+func startHealthServer(port int) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"status":"healthy"}`)
+	})
+	
+	addr := fmt.Sprintf(":%d", port)
+	log.Printf("Starting health check server on port %d", port)
+	
+	httpServer := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+	
+	if err := httpServer.ListenAndServe(); err != nil {
+		log.Printf("Health server error: %v", err)
 	}
 }
 
