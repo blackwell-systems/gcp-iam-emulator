@@ -54,6 +54,25 @@ server --config policy.yaml --watch
 
 **Result:** Local IAM decisions matching your policy, offline testing of authorization logic, CI-ready without GCP credentials.
 
+## Usage Modes
+
+**Standalone** - Run independently as a policy engine:
+```bash
+server --config policy.yaml
+# Single IAM server, use for custom emulators
+```
+
+**Orchestrated Ecosystem** - Use with [GCP Emulator Control Plane](https://github.com/blackwell-systems/gcp-emulator-control-plane) for unified multi-service testing:
+```bash
+gcp-emulator start
+# IAM + Secret Manager + KMS
+# Single policy file, unified authorization
+```
+
+**Choose standalone for custom integrations, orchestrated for complete GCP emulator stack.**
+
+---
+
 ## What This Is (and Isn't)
 
 **GCP IAM Emulator is a deterministic, local policy engine for testing cloud authorization logic.**
