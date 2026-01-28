@@ -499,6 +499,77 @@ server --config policy.yaml --trace-output trace.json
 }
 ```
 
+## Authorization Tracing
+
+Structured logging of IAM decisions for debugging, auditing, and testing.
+
+### Enable Tracing
+
+```bash
+# Emit structured traces to file
+IAM_TRACE_OUTPUT=./authz-trace.jsonl ./server --config policy.yaml
+
+# Or to stdout for debugging
+IAM_TRACE_OUTPUT=stdout ./server --config policy.yaml
+```
+
+### Use Cases
+
+**Debug Permission Denials:**
+```bash
+# See exactly why access was denied
+cat authz-trace.jsonl | jq 'select(.decision.outcome=="DENY")'
+
+# Output shows principal, resource, permission, and reason
+```
+
+**Audit Test Coverage:**
+```bash
+# List all permissions your tests actually exercised
+cat authz-trace.jsonl | jq -r '.action.permission' | sort -u
+
+# See which principals were tested
+cat authz-trace.jsonl | jq -r '.actor.principal' | sort -u
+```
+
+**Validate Policy Changes:**
+```bash
+# Before policy change
+IAM_TRACE_OUTPUT=./before.jsonl go test ./...
+
+# After policy change
+IAM_TRACE_OUTPUT=./after.jsonl go test ./...
+
+# Compare outcomes (detect regressions)
+diff <(jq -r '.decision.outcome' before.jsonl | sort) \
+     <(jq -r '.decision.outcome' after.jsonl | sort)
+```
+
+**CI/CD Compliance:**
+```bash
+# Prove CI only accessed allowed resources
+cat ci-audit.jsonl | \
+  jq -r 'select(.decision.outcome=="ALLOW") | .target.resource' | \
+  grep -v "projects/prod/" && echo "❌ Unauthorized access" || echo "✅ Compliant"
+```
+
+### Trace Event Schema
+
+Each trace event is a single JSON line with:
+- **Actor:** `actor.principal` (who)
+- **Target:** `target.resource` (what)
+- **Action:** `action.permission` (which permission)
+- **Decision:** `decision.outcome` (ALLOW or DENY)
+- **Reason:** `decision.reason` (why)
+- **Timing:** `decision.latency_ms` (performance)
+
+**Example event:**
+```json
+{"schema_version":"1.0","event_type":"authz_check","timestamp":"2026-01-28T10:15:23.483Z","actor":{"principal":"user:alice@example.com"},"target":{"resource":"projects/test/secrets/db-password"},"action":{"permission":"secretmanager.secrets.get"},"decision":{"outcome":"ALLOW","reason":"binding_match","latency_ms":3}}
+```
+
+See `gcp-emulator-auth/pkg/trace` for complete schema definition.
+
 ## v0.3.0 Features
 
 ### Conditional Bindings
