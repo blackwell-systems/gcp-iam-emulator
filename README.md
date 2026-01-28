@@ -121,6 +121,35 @@ gcp-emulator start
 
 ---
 
+## Deterministic Consistency (The CI/CD Killer Feature)
+
+**The Problem with Real GCP IAM:**
+
+GCP IAM is **eventually consistent**. When you create or update a policy binding:
+- Changes can take **1-60 seconds** to propagate globally
+- Your tests become **flaky** (sometimes pass, sometimes fail)
+- CI/CD pipelines have **random failures** you can't reproduce
+
+**The Blackwell Difference:**
+
+This emulator is **strongly consistent**. Policy changes are:
+- **Instant** (0ms propagation delay)
+- **Deterministic** (same input = same output, every time)
+- **Repeatable** (run the test 1000 times, get the same result)
+
+| Dimension | Real GCP IAM | Blackwell IAM Emulator |
+|-----------|--------------|------------------------|
+| **Consistency Model** | Eventually consistent | Strongly consistent |
+| **Propagation Delay** | 1-60 seconds | 0ms (immediate) |
+| **Test Flakiness** | High (timing-dependent) | Zero (deterministic) |
+| **CI/CD Reliability** | Unpredictable | 100% repeatable |
+| **Network Dependency** | Required | None |
+| **Cost per Test Run** | API charges | Free (local) |
+
+> "Eventual consistency is the enemy of CI/CD. This emulator gives you instant, deterministic IAM testing—no more flaky tests, no more waiting for propagation, no more Friday night debugging."
+
+---
+
 ## What This Is (and Isn't)
 
 **GCP IAM Emulator is a deterministic, local policy engine for testing cloud authorization logic.**
