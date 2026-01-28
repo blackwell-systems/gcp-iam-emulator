@@ -15,6 +15,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Checkout gcp-emulator-auth (for replace directive)
+      uses: actions/checkout@v4
+      with:
+        repository: blackwell-systems/gcp-emulator-auth
+        path: gcp-emulator-auth
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -47,6 +53,12 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Checkout gcp-emulator-auth (for replace directive)
+      uses: actions/checkout@v4
+      with:
+        repository: blackwell-systems/gcp-emulator-auth
+        path: gcp-emulator-auth
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
@@ -65,6 +77,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Checkout gcp-emulator-auth (for replace directive)
+      uses: actions/checkout@v4
+      with:
+        repository: blackwell-systems/gcp-emulator-auth
+        path: gcp-emulator-auth
 
     - name: Set up Go
       uses: actions/setup-go@v5
