@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Structured Trace Emission**: JSONL authorization event logging
+  - Implements trace schema v1.0 from `gcp-emulator-auth/pkg/trace`
+  - One `authz_check` event per permission evaluated in `TestIamPermissions`
+  - Captures principal, resource, permission, outcome (ALLOW/DENY), and evaluation metadata
+  - Opt-in via `IAM_TRACE_OUTPUT` environment variable
+  - Supports `stdout` or file path destinations
+  - Graceful degradation when tracing disabled (nil writer pattern)
+  - Integration test validates schema compliance
+- **Authorization Observability**: Enable trace-based testing and analysis
+  - Deterministic event logging for debugging authorization logic
+  - Schema-versioned events for backward compatibility
+  - Structured format for programmatic analysis
+
+### Technical Details
+- Environment variable: `IAM_TRACE_OUTPUT=stdout` or `IAM_TRACE_OUTPUT=/path/to/trace.jsonl`
+- Schema version: 1.0 (from gcp-emulator-auth/pkg/trace)
+- Event format: JSONL (one event per line)
+- Backward compatibility: Existing slog trace logging preserved
+- Performance: Buffered writes, explicit flush after batch emission
+
+### Usage
+```bash
+# Emit traces to stdout
+IAM_TRACE_OUTPUT=stdout ./server --config policy.yaml
+
+# Emit traces to file
+IAM_TRACE_OUTPUT=/tmp/authz-trace.jsonl ./server --config policy.yaml
+```
+
 ## [0.5.0] - 2026-01-27
 
 ### Added
