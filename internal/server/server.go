@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
+	"github.com/blackwell-systems/gcp-emulator-auth/pkg/trace"
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/storage"
 )
 
@@ -23,13 +24,18 @@ type Server struct {
 	explain     bool
 	traceFile   *os.File
 	traceLogger *slog.Logger
+	traceWriter *trace.Writer
 }
 
 func NewServer() *Server {
+	// Initialize trace writer from environment
+	traceWriter, _ := trace.NewWriterFromEnv()
+	
 	return &Server{
-		storage: storage.NewStorage(),
-		trace:   false,
-		explain: false,
+		storage:     storage.NewStorage(),
+		trace:       false,
+		explain:     false,
+		traceWriter: traceWriter,
 	}
 }
 
@@ -46,6 +52,7 @@ func (s *Server) SetAllowUnknownRoles(allow bool) {
 }
 
 func (s *Server) SetTraceOutput(path string) error {
+	// Create legacy slog trace file
 	f, err := os.Create(path)
 	if err != nil {
 		return fmt.Errorf("failed to create trace output file: %w", err)
@@ -55,6 +62,15 @@ func (s *Server) SetTraceOutput(path string) error {
 	s.traceLogger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
+	
+	// Also create structured trace writer if not already set from env
+	if s.traceWriter == nil {
+		w, err := trace.NewWriter(path)
+		if err != nil {
+			return fmt.Errorf("failed to create trace writer: %w", err)
+		}
+		s.traceWriter = w
+	}
 	
 	return nil
 }
@@ -76,6 +92,7 @@ func (s *Server) GetStorage() *storage.Storage {
 }
 
 func (s *Server) logTrace(resource, principal string, allowed []string, duration time.Duration) {
+	// Legacy slog trace
 	if s.traceLogger != nil {
 		s.traceLogger.Info("permission_check",
 			"resource", resource,
@@ -85,6 +102,57 @@ func (s *Server) logTrace(resource, principal string, allowed []string, duration
 			"timestamp", time.Now().Format(time.RFC3339),
 		)
 	}
+}
+
+func (s *Server) emitTraceEvents(resource, principal string, permissions []string, allowed []string, duration time.Duration) {
+	if s.traceWriter == nil {
+		return
+	}
+	
+	// Create a map of allowed permissions for quick lookup
+	allowedMap := make(map[string]bool, len(allowed))
+	for _, perm := range allowed {
+		allowedMap[perm] = true
+	}
+	
+	// Emit one event per permission check
+	for _, perm := range permissions {
+		outcome := trace.OutcomeDeny
+		reason := "no_matching_binding"
+		
+		if allowedMap[perm] {
+			outcome = trace.OutcomeAllow
+			reason = "binding_match"
+		}
+		
+		event := trace.AuthzEvent{
+			SchemaVersion: trace.SchemaV1_0,
+			EventType:     trace.EventTypeAuthzCheck,
+			Timestamp:     trace.NowRFC3339Nano(),
+			Actor: &trace.Actor{
+				Principal: principal,
+			},
+			Target: &trace.Target{
+				Resource: resource,
+			},
+			Action: &trace.Action{
+				Permission: perm,
+				Method:     "TestIamPermissions",
+			},
+			Decision: &trace.Decision{
+				Outcome:     outcome,
+				Reason:      reason,
+				EvaluatedBy: "gcp-iam-emulator",
+				LatencyMS:   duration.Milliseconds(),
+			},
+		}
+		
+		// Emit event (gracefully ignores if writer is nil)
+		_ = s.traceWriter.Emit(event)
+	}
+	
+	// Flush after emitting all events
+	_ = s.traceWriter.Flush()
 }
 
 func (s *Server) extractPrincipal(ctx context.Context) string {
@@ -153,7 +221,11 @@ func (s *Server) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermi
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
+	// Legacy slog trace
 	s.logTrace(req.Resource, principal, allowed, duration)
+	
+	// Structured trace events (JSONL)
+	s.emitTraceEvents(req.Resource, principal, req.Permissions, allowed, duration)
 
 	return &iampb.TestIamPermissionsResponse{ //nolint:staticcheck // Using standard genproto package
 		Permissions: allowed,
