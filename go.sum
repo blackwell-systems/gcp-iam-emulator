@@ -1,7 +1,7 @@
 cloud.google.com/go/iam v1.5.3 h1:+vMINPiDF2ognBJ97ABAYYwRgsaqxPbQDlMnbHMjolc=
 cloud.google.com/go/iam v1.5.3/go.mod h1:MR3v9oLkZCTlaqljW6Eb2d3HGDGK5/bDv93jhfISFvU=
-github.com/blackwell-systems/gcp-emulator-auth v0.2.0 h1:LJxwAs+WAWEXnMSIXWmCx3tcGWfO4rQilLp3OkuPFOA=
-github.com/blackwell-systems/gcp-emulator-auth v0.2.0/go.mod h1:QB/g2GrtdByaU0+/mjdKwVKnB/Zoth2Op43Qo11Mx5s=
+github.com/blackwell-systems/gcp-emulator-auth v0.3.0 h1:R2nwBN+FVDFiUgHJSpcY/NK6tfNIJs7rO4bbBFK4xes=
+github.com/blackwell-systems/gcp-emulator-auth v0.3.0/go.mod h1:QB/g2GrtdByaU0+/mjdKwVKnB/Zoth2Op43Qo11Mx5s=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/go-logr/logr v1.4.3 h1:CjnDlHq8ikf6E492q6eKboGOC0T8CDaOvkHCIg8idEI=

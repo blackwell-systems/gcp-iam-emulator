@@ -8,7 +8,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/blackwell-systems/gcp-emulator-auth v0.2.0
+require github.com/blackwell-systems/gcp-emulator-auth v0.3.0
 
 require (
 	cloud.google.com/go/iam v1.5.3 // indirect
