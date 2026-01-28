@@ -145,6 +145,9 @@ func (s *Server) emitTraceEvents(resource, principal string, permissions []strin
 				EvaluatedBy: "gcp-iam-emulator",
 				LatencyMS:   duration.Milliseconds(),
 			},
+			Environment: &trace.Environment{
+				Component: "gcp-iam-emulator",
+			},
 		}
 		
 		// Emit event (gracefully ignores if writer is nil)
