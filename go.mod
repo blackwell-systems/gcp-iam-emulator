@@ -8,7 +8,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
-require github.com/blackwell-systems/gcp-emulator-auth v0.1.1 // indirect
+require github.com/blackwell-systems/gcp-emulator-auth v0.2.0
 
 require (
 	cloud.google.com/go/iam v1.5.3 // indirect
@@ -20,5 +20,3 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260120174246-409b4a993575 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/blackwell-systems/gcp-emulator-auth => ../gcp-emulator-auth
