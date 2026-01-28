@@ -7,7 +7,7 @@
 
 > **Policy engine for the Local IAM Control Plane** — Evaluate permissions before data access, make emulators fail like production.
 
-This is the **brain** of the Blackwell [Local IAM Control Plane](https://github.com/blackwell-systems/gcp-emulator-auth/blob/master/CATEGORY.md). It evaluates IAM policies and tells service emulators (Secret Manager, KMS) whether to allow or deny requests.
+This is the **brain** of the Blackwell Local IAM Control Plane. It evaluates IAM policies and tells service emulators (Secret Manager, KMS) whether to allow or deny requests.
 
 Unlike mocks (which allow everything) or observers like iamlive (which record after the fact), this actively enforces policies **before** requests reach data planes.
 
@@ -111,7 +111,7 @@ gcp-emulator start
 
 **This is the enforcement boundary.** Requests are authorized here before data access.
 
-See the [category definition](https://github.com/blackwell-systems/gcp-emulator-auth/blob/master/CATEGORY.md) for complete context.
+
 
 | Approach | Example | When | Behavior |
 |----------|---------|------|----------|
@@ -751,9 +751,10 @@ Maintained by **Dayna Blackwell** — founder of Blackwell Systems, building ref
 
 ## Related Projects
 
-- [GCP Emulator Control Plane](https://github.com/blackwell-systems/gcp-iam-control-plane) - Orchestration CLI + docker-compose for the complete emulator stack (IAM + Secret Manager + KMS)
-- [GCP Secret Manager Emulator](https://github.com/blackwell-systems/gcp-secret-manager-emulator) - Reference implementation for Secret Manager API
-- [GCP KMS Emulator](https://github.com/blackwell-systems/gcp-kms-emulator) - Reference implementation for KMS API
+- [**GCP IAM Control Plane**](https://github.com/blackwell-systems/gcp-iam-control-plane) - CLI to orchestrate the Local IAM Control Plane (IAM + data planes)
+- [GCP Secret Manager Emulator](https://github.com/blackwell-systems/gcp-secret-manager-emulator) - IAM-enforced Secret Manager data plane
+- [GCP KMS Emulator](https://github.com/blackwell-systems/gcp-kms-emulator) - IAM-enforced KMS data plane
+- [gcp-emulator-auth](https://github.com/blackwell-systems/gcp-emulator-auth) - Enforcement proxy library (the guard)
 
 ## License
 
