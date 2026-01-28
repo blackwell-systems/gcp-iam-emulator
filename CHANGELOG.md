@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-28
+
+### Added
+- **Environment Component Field**: Trace events now include `environment.component`
+  - Set to "gcp-iam-emulator" for all emitted events
+  - Enables distinguishing decision maker from request caller in multi-service traces
+  - Complements `decision.evaluated_by` field for full observability
+
+### Changed
+- Upgraded to gcp-emulator-auth v0.3.0 (component parameter support)
+
+## [0.7.0] - 2026-01-28
+
 ### Added
 - **Structured Trace Emission**: JSONL authorization event logging
   - Implements trace schema v1.0 from `gcp-emulator-auth/pkg/trace`
