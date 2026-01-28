@@ -5,9 +5,11 @@
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-> A reference local IAM policy engine, compatible with Google Cloud IAM semantics
+> **Policy engine for the Local IAM Control Plane** — Evaluate permissions before data access, make emulators fail like production.
 
-A production-grade IAM policy engine providing complete, behaviorally-accurate permission evaluation for local development and CI/CD. The missing auth layer for GCP emulators. No GCP credentials or network connectivity required.
+This is the **brain** of the Blackwell [Local IAM Control Plane](https://github.com/blackwell-systems/gcp-emulator-auth/blob/master/CATEGORY.md). It evaluates IAM policies and tells service emulators (Secret Manager, KMS) whether to allow or deny requests.
+
+Unlike mocks (which allow everything) or observers like iamlive (which record after the fact), this actively enforces policies **before** requests reach data planes.
 
 ## Quick Example
 
@@ -62,7 +64,7 @@ server --config policy.yaml
 # Single IAM server, use for custom emulators
 ```
 
-**Orchestrated Ecosystem** - Use with [GCP Emulator Control Plane](https://github.com/blackwell-systems/gcp-emulator-control-plane) for unified multi-service testing:
+**Orchestrated Ecosystem** - Use with [GCP IAM Control Plane](https://github.com/blackwell-systems/gcp-iam-control-plane) for unified multi-service testing:
 ```bash
 gcp-emulator start
 # IAM + Secret Manager + KMS
@@ -70,6 +72,52 @@ gcp-emulator start
 ```
 
 **Choose standalone for custom integrations, orchestrated for complete GCP emulator stack.**
+
+---
+
+## Architecture — Control Plane Position
+
+```
+┌─────────────────────────────────────────┐
+│  Your Application Code                  │
+│  (GCP client libraries)                 │
+└────────────────┬────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────┐
+│  DATA PLANES                            │
+│  • Secret Manager Emulator              │
+│  • KMS Emulator                         │
+│  • (Future: Tasks, Pub/Sub, Storage)    │
+│                                         │
+│  Each checks IAM before data access     │
+└────────────────┬────────────────────────┘
+                 │
+                 │ CheckPermission(principal, resource, permission)
+                 ▼
+┌─────────────────────────────────────────┐
+│  CONTROL PLANE (THIS REPO)              │◄── You are here
+│  IAM Emulator — Policy Engine           │
+│                                         │
+│  Evaluates:                             │
+│  • Role bindings                        │
+│  • Group memberships                    │
+│  • Conditional policies (CEL)           │
+│  • Policy inheritance                   │
+│                                         │
+│  Returns: Allow / Deny                  │
+└─────────────────────────────────────────┘
+```
+
+**This is the enforcement boundary.** Requests are authorized here before data access.
+
+See the [category definition](https://github.com/blackwell-systems/gcp-emulator-auth/blob/master/CATEGORY.md) for complete context.
+
+| Approach | Example | When | Behavior |
+|----------|---------|------|----------|
+| Mock | Standard emulators | Never | Always allows |
+| Observer | iamlive (AWS) | After | Records what you used |
+| **Control Plane** | **Blackwell IAM** | **Before** | **Denies unauthorized** |
 
 ---
 
@@ -703,7 +751,7 @@ Maintained by **Dayna Blackwell** — founder of Blackwell Systems, building ref
 
 ## Related Projects
 
-- [GCP Emulator Control Plane](https://github.com/blackwell-systems/gcp-emulator-control-plane) - Orchestration CLI + docker-compose for the complete emulator stack (IAM + Secret Manager + KMS)
+- [GCP Emulator Control Plane](https://github.com/blackwell-systems/gcp-iam-control-plane) - Orchestration CLI + docker-compose for the complete emulator stack (IAM + Secret Manager + KMS)
 - [GCP Secret Manager Emulator](https://github.com/blackwell-systems/gcp-secret-manager-emulator) - Reference implementation for Secret Manager API
 - [GCP KMS Emulator](https://github.com/blackwell-systems/gcp-kms-emulator) - Reference implementation for KMS API
 

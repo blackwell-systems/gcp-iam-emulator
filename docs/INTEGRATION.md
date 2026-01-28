@@ -1070,7 +1070,7 @@ func TestCrossServiceAuthorization(t *testing.T) {
 - [x] CHANGELOG.md with v0.2.0 release notes
 
 ### Control Plane Repository
-- [x] Create `gcp-emulator-control-plane` repository (v0.1.0)
+- [x] Create `gcp-iam-control-plane` repository (v0.1.0)
 - [x] Docker Compose orchestration (IAM + Secret Manager + KMS)
 - [x] Single policy.yaml configuration
 - [x] Policy packs (secretmanager.yaml, kms.yaml, ci.yaml)
