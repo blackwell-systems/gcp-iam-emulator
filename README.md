@@ -9,7 +9,7 @@
 
 This is the **brain** of the Blackwell Local IAM Control Plane. It evaluates IAM policies and tells service emulators (Secret Manager, KMS) whether to allow or deny requests.
 
-Unlike mocks (which allow everything) or observers like iamlive (which record after the fact), this actively enforces policies **before** requests reach data planes.
+Unlike mocks (which allow everything) or observers (which record after the fact), this actively enforces policies **before** requests reach data planes.
 
 ## Quick Example
 
@@ -116,7 +116,7 @@ gcp-emulator start
 | Approach | Example | When | Behavior |
 |----------|---------|------|----------|
 | Mock | Standard emulators | Never | Always allows |
-| Observer | iamlive (AWS) | After | Records what you used |
+| Observer | Post-execution analysis | After | Records what you used |
 | **Control Plane** | **Blackwell IAM** | **Before** | **Denies unauthorized** |
 
 ---
