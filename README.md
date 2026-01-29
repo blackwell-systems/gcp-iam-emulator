@@ -75,6 +75,59 @@ gcp-emulator start
 
 ---
 
+## How to Provide Principals
+
+The emulator needs to know **who** is making each request. Provide identity via metadata/headers:
+
+### gRPC Metadata (Go SDK Example)
+
+```go
+import "google.golang.org/grpc/metadata"
+
+// Inject principal identity
+md := metadata.Pairs("x-emulator-principal", "serviceAccount:ci@project.iam.gserviceaccount.com")
+ctx = metadata.NewOutgoingContext(context.Background(), md)
+
+// Now use ctx for API calls - emulator sees the principal
+client.GetSecretVersion(ctx, &secretmanagerpb.GetSecretVersionRequest{...})
+```
+
+### HTTP Header (REST API / curl)
+
+```bash
+curl -X POST http://localhost:8081/v1/projects/test/secrets/api-key:testIamPermissions \
+  -H "X-Emulator-Principal: serviceAccount:ci@project.iam.gserviceaccount.com" \
+  -H "Content-Type: application/json" \
+  -d '{"permissions": ["secretmanager.secrets.get"]}'
+```
+
+### Supported Principal Formats
+
+- **Service accounts:** `serviceAccount:name@project.iam.gserviceaccount.com`
+- **Users:** `user:alice@example.com`
+- **Groups:** `group:eng-team@example.com` (define groups in policy.yaml)
+- **All authenticated:** `allAuthenticatedUsers`
+- **Public:** `allUsers`
+
+### Integration with Emulators
+
+When using with Secret Manager / KMS emulators, the data plane emulators automatically forward the principal to the IAM control plane:
+
+```go
+// Your test code sets principal once
+ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+    "x-emulator-principal", "serviceAccount:ci@test.iam.gserviceaccount.com",
+))
+
+// Secret Manager emulator forwards principal to IAM emulator automatically
+client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{...})
+// ↓ Internally: IAM checks if ci@test.iam can secretmanager.versions.access
+```
+
+**No additional configuration needed** - the emulator ecosystem handles principal propagation.
+
+---
+
 ## Architecture — Control Plane Position
 
 ```
@@ -173,7 +226,7 @@ Instead, it provides:
 ## Features
 
 - **Complete IAM Policy API** - SetIamPolicy, GetIamPolicy, TestIamPermissions (gRPC + REST)
-- **Real Permission Evaluation** - Accurate role-to-permission mapping
+- **Deterministic Permission Evaluation** - Explicit role→permission definitions (built-in bootstrap roles + YAML-defined custom roles)
 - **Conditional Bindings** - CEL expression support for resource-based access control
 - **Groups Support** - Define reusable groups with nested membership (1 level)
 - **Policy Schema v3** - Full support for etag, version, auditConfigs, conditions
