@@ -909,6 +909,25 @@ Maintained by **Dayna Blackwell** — founder of Blackwell Systems, building ref
 - [GCP KMS Emulator](https://github.com/blackwell-systems/gcp-kms-emulator) - IAM-enforced KMS data plane
 - [gcp-emulator-auth](https://github.com/blackwell-systems/gcp-emulator-auth) - Enforcement proxy library (the guard)
 
+---
+
+## Who's Using This?
+
+If you're using this IAM emulator — in CI, locally, or in a test harness — I'd love to hear how you're using it.
+
+- **What authorization bugs did you catch?** (missing bindings, wrong role definitions, conditional policy issues)
+- **How are you defining roles?** (mostly built-in, mostly custom YAML, mix of both)
+- **What's your setup?** (standalone policy engine, orchestrated with data plane emulators, custom integration)
+- **What's still friction?** (policy.yaml complexity, trace mode integration, missing GCP role equivalents)
+
+Open an issue, start a discussion, or reach out directly:
+
+📬 dayna@blackwell-systems.com
+
+This helps shape the roadmap and ensures the project stays aligned with real-world needs.
+
+---
+
 ## License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
