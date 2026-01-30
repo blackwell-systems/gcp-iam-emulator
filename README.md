@@ -5,7 +5,7 @@
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-> **Policy engine for the Local IAM Control Plane** — Evaluate permissions before data access, make emulators fail like production.
+> **Policy engine for the Local IAM Control Plane** — Evaluate permissions before data access, make emulators fail for the same authorization reasons production would.
 
 This is the **brain** of the Blackwell Local IAM Control Plane. It evaluates IAM policies and tells service emulators (Secret Manager, KMS) whether to allow or deny requests.
 
@@ -156,7 +156,7 @@ client.AccessSecretVersion(ctx, &secretmanagerpb.AccessSecretVersionRequest{...}
 │  • Role bindings                        │
 │  • Group memberships                    │
 │  • Conditional policies (CEL)           │
-│  • Policy inheritance                   │
+│  • Resource-level policy evaluation     │
 │                                         │
 │  Returns: Allow / Deny                  │
 └─────────────────────────────────────────┘
@@ -195,7 +195,7 @@ This emulator is **strongly consistent**. Policy changes are:
 | **Consistency Model** | Eventually consistent | Strongly consistent |
 | **Propagation Delay** | 1-60 seconds | 0ms (immediate) |
 | **Test Flakiness** | High (timing-dependent) | Zero (deterministic) |
-| **CI/CD Reliability** | Unpredictable | 100% repeatable |
+| **CI/CD Reliability** | Unpredictable | Fully repeatable |
 | **Network Dependency** | Required | None |
 | **Cost per Test Run** | API charges | Free (local) |
 
@@ -207,11 +207,13 @@ This emulator is **strongly consistent**. Policy changes are:
 
 **GCP IAM Emulator is a deterministic, local policy engine for testing cloud authorization logic.**
 
+**Scope note:** This emulator is a deterministic IAMPolicy engine for CI testing. It does not attempt full Google Cloud IAM parity (org/folder hierarchy, deny policies, full CEL).
+
 It is not a full reimplementation of Google Cloud IAM, and it does not attempt perfect fidelity.
 
 Instead, it provides:
 
-- **Behaviorally accurate permission evaluation** - Test "who can access what" locally
+- **Deterministic permission evaluation** - Test "who can access what" locally (within your policy.yaml-defined permission universe)
 - **Strict, offline policy modeling** - No GCP credentials or network required
 - **Composable auth layer** - Foundation for local GCP emulator ecosystems
 
@@ -233,7 +235,7 @@ This IAM emulator is deliberately scoped for **authorization testing**, not comp
 
 ## Features
 
-- **Complete IAM Policy API** - SetIamPolicy, GetIamPolicy, TestIamPermissions (gRPC + REST)
+- **Complete IAMPolicy API surface** - SetIamPolicy, GetIamPolicy, TestIamPermissions (gRPC + REST)
 - **Deterministic Permission Evaluation** - Explicit role→permission definitions (built-in bootstrap roles + YAML-defined custom roles)
 - **Conditional Bindings** - CEL expression support for resource-based access control
 - **Groups Support** - Define reusable groups with nested membership (1 level)
