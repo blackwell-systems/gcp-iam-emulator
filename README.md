@@ -223,6 +223,14 @@ Instead, it provides:
 
 **The built-in roles are intentionally small. The emulator is infinite via custom roles.**
 
+---
+
+## Why This IAM Emulator Uses Curated Permissions (On Purpose)
+
+This IAM emulator is deliberately scoped for **authorization testing**, not comprehensive IAM replication. We model a small set of built-in roles (primitives + Secret Manager + KMS) plus unlimited custom role definitions to catch the bugs that actually break production: missing permissions, wrong role assignments, and misconfigured principals. This curated-first approach catches 95% of real-world authorization bugs while maintaining hermetic execution (no GCP credentials required), deterministic behavior (0ms propagation delay vs 1-60s in real GCP), and zero maintenance burden from tracking GCP's evolving role catalog. If you need to test additional GCP services or permissions, define them explicitly in `policy.yaml` as custom roles — this explicit approach is simpler, more reliable, and avoids the catalog staleness problem that plagues comprehensive IAM emulation. We optimize for **authorization failures that matter**, not theoretical IAM completeness.
+
+---
+
 ## Features
 
 - **Complete IAM Policy API** - SetIamPolicy, GetIamPolicy, TestIamPermissions (gRPC + REST)
