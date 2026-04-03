@@ -10,7 +10,6 @@ import (
 
 	iampb "google.golang.org/genproto/googleapis/iam/v1" //nolint:staticcheck
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/config"
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/server"
@@ -75,6 +74,5 @@ func Register(grpcSrv *grpc.Server, opts ...Option) error {
 	}
 
 	iampb.RegisterIAMPolicyServer(grpcSrv, srv) //nolint:staticcheck
-	reflection.Register(grpcSrv)
 	return nil
 }
