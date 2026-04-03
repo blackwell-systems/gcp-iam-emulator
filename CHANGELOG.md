@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `Register()` composition hook for unified `gcp-emulator`
   - Accepts `WithPolicyFile`, `WithTrace`, `WithAllowUnknownRoles` options
+
+### Fixed
+- `Register()` no longer calls `reflection.Register`, preventing fatal duplicate registration when composing multiple emulators on one gRPC server
   - Registers IAM gRPC service on an existing `*grpc.Server`
 
 ## [0.8.0] - 2026-01-28
