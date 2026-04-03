@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-04-03
+
 ### Changed
 - **REST gateway migrated from hand-rolled HTTP to grpc-gateway v2** — HTTP handlers are now auto-generated from the IAM proto definitions, ensuring full API compatibility with real GCP
 - REST gateway now returns correct HTTP status codes and structured GCP-format error responses
@@ -164,7 +166,10 @@ IAM_TRACE_OUTPUT=/tmp/authz-trace.jsonl ./server --config policy.yaml
 - No authentication (emulator design)
 - File-based policy (no persistence)
 
-[Unreleased]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.8.0...v0.10.0
+[0.8.0]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.5.0...v0.7.0
 [0.5.0]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/blackwell-systems/gcp-iam-emulator/compare/v0.2.0...v0.3.0
