@@ -64,14 +64,15 @@ server --config policy.yaml
 # Single IAM server, use for custom emulators
 ```
 
-**Orchestrated Ecosystem** - Use with [GCP IAM Control Plane](https://github.com/blackwell-systems/gcp-iam-control-plane) for unified multi-service testing:
+**Unified Ecosystem** - Use with [gcp-emulator](https://github.com/blackwell-systems/gcp-emulator) for unified multi-service testing in a single process:
 ```bash
-gcp-emulator start
-# IAM + Secret Manager + KMS
-# Single policy file, unified authorization
+go install github.com/blackwell-systems/gcp-emulator/cmd/gcp-emulator@latest
+gcp-emulator --policy policy.yaml --iam-mode strict
+# IAM + Secret Manager + KMS + Eventarc
+# Single process, single port, single policy file
 ```
 
-**Choose standalone for custom integrations, orchestrated for complete GCP emulator stack.**
+**Choose standalone for custom integrations, gcp-emulator for the complete GCP emulator stack.**
 
 ---
 
@@ -914,9 +915,10 @@ Maintained by **Dayna Blackwell** — founder of Blackwell Systems, building ref
 
 ## Related Projects
 
-- [**GCP IAM Control Plane**](https://github.com/blackwell-systems/gcp-iam-control-plane) - CLI to orchestrate the Local IAM Control Plane (IAM + data planes)
+- [**gcp-emulator**](https://github.com/blackwell-systems/gcp-emulator) - Unified single-process runtime (IAM + Secret Manager + KMS + Eventarc)
 - [GCP Secret Manager Emulator](https://github.com/blackwell-systems/gcp-secret-manager-emulator) - IAM-enforced Secret Manager data plane
 - [GCP KMS Emulator](https://github.com/blackwell-systems/gcp-kms-emulator) - IAM-enforced KMS data plane
+- [GCP Eventarc Emulator](https://github.com/blackwell-systems/gcp-eventarc-emulator) - IAM-enforced Eventarc data plane
 - [gcp-emulator-auth](https://github.com/blackwell-systems/gcp-emulator-auth) - Enforcement proxy library (the guard)
 
 ---
