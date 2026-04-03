@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	expr "google.golang.org/genproto/googleapis/type/expr"
 	iampb "google.golang.org/genproto/googleapis/iam/v1" //nolint:staticcheck // Using standard genproto package
+	expr "google.golang.org/genproto/googleapis/type/expr"
 )
 
 func TestPolicyEtag(t *testing.T) {

@@ -30,7 +30,7 @@ type Server struct {
 func NewServer() *Server {
 	// Initialize trace writer from environment
 	traceWriter, _ := trace.NewWriterFromEnv()
-	
+
 	return &Server{
 		storage:     storage.NewStorage(),
 		trace:       false,
@@ -57,12 +57,12 @@ func (s *Server) SetTraceOutput(path string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create trace output file: %w", err)
 	}
-	
+
 	s.traceFile = f
 	s.traceLogger = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{
 		Level: slog.LevelDebug,
 	}))
-	
+
 	// Also create structured trace writer if not already set from env
 	if s.traceWriter == nil {
 		w, err := trace.NewWriter(path)
@@ -71,7 +71,7 @@ func (s *Server) SetTraceOutput(path string) error {
 		}
 		s.traceWriter = w
 	}
-	
+
 	return nil
 }
 
@@ -108,23 +108,23 @@ func (s *Server) emitTraceEvents(resource, principal string, permissions []strin
 	if s.traceWriter == nil {
 		return
 	}
-	
+
 	// Create a map of allowed permissions for quick lookup
 	allowedMap := make(map[string]bool, len(allowed))
 	for _, perm := range allowed {
 		allowedMap[perm] = true
 	}
-	
+
 	// Emit one event per permission check
 	for _, perm := range permissions {
 		outcome := trace.OutcomeDeny
 		reason := "no_matching_binding"
-		
+
 		if allowedMap[perm] {
 			outcome = trace.OutcomeAllow
 			reason = "binding_match"
 		}
-		
+
 		event := trace.AuthzEvent{
 			SchemaVersion: trace.SchemaV1_0,
 			EventType:     trace.EventTypeAuthzCheck,
@@ -149,11 +149,11 @@ func (s *Server) emitTraceEvents(resource, principal string, permissions []strin
 				Component: "gcp-iam-emulator",
 			},
 		}
-		
+
 		// Emit event (gracefully ignores if writer is nil)
 		_ = s.traceWriter.Emit(event)
 	}
-	
+
 	// Flush after emitting all events
 	_ = s.traceWriter.Flush()
 }
@@ -219,14 +219,14 @@ func (s *Server) TestIamPermissions(ctx context.Context, req *iampb.TestIamPermi
 	start := time.Now()
 	allowed, err := s.storage.TestIamPermissions(req.Resource, principal, req.Permissions, s.trace || s.explain)
 	duration := time.Since(start)
-	
+
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	// Legacy slog trace
 	s.logTrace(req.Resource, principal, allowed, duration)
-	
+
 	// Structured trace events (JSONL)
 	s.emitTraceEvents(req.Resource, principal, req.Permissions, allowed, duration)
 

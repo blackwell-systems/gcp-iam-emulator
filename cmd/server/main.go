@@ -14,9 +14,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/config"
-	"github.com/blackwell-systems/gcp-iam-emulator/internal/rest"
+	"github.com/blackwell-systems/gcp-iam-emulator/internal/gateway"
 	"github.com/blackwell-systems/gcp-iam-emulator/internal/server"
-	"github.com/blackwell-systems/gcp-iam-emulator/internal/storage"
 )
 
 var (
@@ -37,15 +36,15 @@ func main() {
 	log.Printf("GCP IAM Emulator v%s", version)
 
 	enableTrace := *trace || *explain || *traceOutput != ""
-	
+
 	iamServer := server.NewServer()
 	iamServer.SetTrace(enableTrace)
 	iamServer.SetAllowUnknownRoles(*allowUnknownRoles)
-	
+
 	if *explain {
 		iamServer.SetExplain(true)
 	}
-	
+
 	if *traceOutput != "" {
 		if err := iamServer.SetTraceOutput(*traceOutput); err != nil {
 			log.Fatalf("Failed to set trace output: %v", err)
@@ -71,7 +70,7 @@ func main() {
 			log.Printf("Trace output: %s (JSON format)", *traceOutput)
 		}
 	}
-	
+
 	if *allowUnknownRoles {
 		log.Printf("Compat mode: ENABLED (wildcard role matching allowed - less strict)")
 	} else {
@@ -79,7 +78,7 @@ func main() {
 	}
 
 	if *httpPort > 0 {
-		go startHTTPServer(*httpPort, iamServer.GetStorage(), *trace)
+		go startHTTPServer(*httpPort, *port)
 	} else {
 		// Start minimal HTTP server for health checks on gRPC port + 1000
 		go startHealthServer(*port + 1000)
@@ -106,28 +105,19 @@ func main() {
 	}
 }
 
-func startHTTPServer(port int, store *storage.Storage, trace bool) {
-	restServer := rest.NewServer(store, trace)
-	
-	mux := http.NewServeMux()
-	restServer.RegisterHandlers(mux)
-	
-	// Add health endpoint
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"healthy"}`)
-	})
-	
-	addr := fmt.Sprintf(":%d", port)
-	log.Printf("Starting HTTP REST server on port %d", port)
-	
-	httpServer := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+func startHTTPServer(httpPort, grpcPort int) {
+	grpcAddr := fmt.Sprintf("localhost:%d", grpcPort)
+	gw, err := gateway.NewServer(grpcAddr)
+	if err != nil {
+		log.Fatalf("Failed to create REST gateway: %v", err)
 	}
-	
-	if err := httpServer.ListenAndServe(); err != nil {
-		log.Printf("HTTP server error: %v", err)
+
+	addr := fmt.Sprintf(":%d", httpPort)
+	log.Printf("Starting REST gateway (grpc-gateway v2) on port %d → gRPC :%d", httpPort, grpcPort)
+
+	httpSrv := &http.Server{Addr: addr, Handler: gw.Handler()}
+	if err := httpSrv.ListenAndServe(); err != nil {
+		log.Printf("REST gateway error: %v", err)
 	}
 }
 
@@ -137,15 +127,15 @@ func startHealthServer(port int) {
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprintf(w, `{"status":"healthy"}`)
 	})
-	
+
 	addr := fmt.Sprintf(":%d", port)
 	log.Printf("Starting health check server on port %d", port)
-	
+
 	httpServer := &http.Server{
 		Addr:    addr,
 		Handler: mux,
 	}
-	
+
 	if err := httpServer.ListenAndServe(); err != nil {
 		log.Printf("Health server error: %v", err)
 	}
@@ -161,7 +151,7 @@ func loadConfig(path string, iamServer *server.Server) error {
 	policies := cfg.ToPolicies()
 	iamServer.LoadPolicies(policies)
 	log.Printf("Loaded %d policies from config", len(policies))
-	
+
 	if len(cfg.Groups) > 0 {
 		groups := make(map[string][]string)
 		for groupName, groupCfg := range cfg.Groups {
@@ -170,7 +160,7 @@ func loadConfig(path string, iamServer *server.Server) error {
 		iamServer.LoadGroups(groups)
 		log.Printf("Loaded %d groups from config", len(groups))
 	}
-	
+
 	if len(cfg.Roles) > 0 {
 		roles := make(map[string][]string)
 		for roleName, roleCfg := range cfg.Roles {
@@ -179,7 +169,7 @@ func loadConfig(path string, iamServer *server.Server) error {
 		iamServer.LoadCustomRoles(roles)
 		log.Printf("Loaded %d custom roles from config", len(roles))
 	}
-	
+
 	return nil
 }
 

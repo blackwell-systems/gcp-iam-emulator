@@ -14,12 +14,12 @@ import (
 )
 
 type Storage struct {
-	mu               sync.RWMutex
-	projects         map[string]*Project
-	serviceAccounts  map[string]*ServiceAccount
-	policies         map[string]*iampb.Policy
-	groups           map[string][]string
-	customRoles      map[string][]string
+	mu                sync.RWMutex
+	projects          map[string]*Project
+	serviceAccounts   map[string]*ServiceAccount
+	policies          map[string]*iampb.Policy
+	groups            map[string][]string
+	customRoles       map[string][]string
 	allowUnknownRoles bool
 }
 

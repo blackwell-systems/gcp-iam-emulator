@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	expr "google.golang.org/genproto/googleapis/type/expr"
 	iampb "google.golang.org/genproto/googleapis/iam/v1" //nolint:staticcheck // Using standard genproto package
+	expr "google.golang.org/genproto/googleapis/type/expr"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,9 +24,9 @@ type RoleConfig struct {
 }
 
 type ProjectConfig struct {
-	Bindings     []BindingConfig            `yaml:"bindings"`
-	AuditConfigs []AuditConfigYAML          `yaml:"auditConfigs,omitempty"`
-	Resources    map[string]ResourceConfig  `yaml:"resources,omitempty"`
+	Bindings     []BindingConfig           `yaml:"bindings"`
+	AuditConfigs []AuditConfigYAML         `yaml:"auditConfigs,omitempty"`
+	Resources    map[string]ResourceConfig `yaml:"resources,omitempty"`
 }
 
 type ResourceConfig struct {
@@ -35,9 +35,9 @@ type ResourceConfig struct {
 }
 
 type BindingConfig struct {
-	Role      string          `yaml:"role"`
-	Members   []string        `yaml:"members"`
-	Condition *ConditionYAML  `yaml:"condition,omitempty"`
+	Role      string         `yaml:"role"`
+	Members   []string       `yaml:"members"`
+	Condition *ConditionYAML `yaml:"condition,omitempty"`
 }
 
 type ConditionYAML struct {
@@ -47,7 +47,7 @@ type ConditionYAML struct {
 }
 
 type AuditConfigYAML struct {
-	Service         string              `yaml:"service"`
+	Service         string               `yaml:"service"`
 	AuditLogConfigs []AuditLogConfigYAML `yaml:"auditLogConfigs"`
 }
 
@@ -81,7 +81,7 @@ func (c *Config) ToPolicies() map[string]*iampb.Policy { //nolint:staticcheck //
 				Bindings:     bindingsToProto(projectCfg.Bindings),
 				AuditConfigs: auditConfigsToProto(projectCfg.AuditConfigs),
 			}
-			
+
 			policy.Version = determineVersion(policy)
 			policies[projectResource] = policy
 		}
@@ -92,7 +92,7 @@ func (c *Config) ToPolicies() map[string]*iampb.Policy { //nolint:staticcheck //
 				Bindings:     bindingsToProto(resourceCfg.Bindings),
 				AuditConfigs: auditConfigsToProto(resourceCfg.AuditConfigs),
 			}
-			
+
 			policy.Version = determineVersion(policy)
 			policies[fullResource] = policy
 		}
@@ -117,7 +117,7 @@ func bindingsToProto(bindings []BindingConfig) []*iampb.Binding { //nolint:stati
 			Role:    b.Role,
 			Members: b.Members,
 		}
-		
+
 		if b.Condition != nil {
 			binding.Condition = &expr.Expr{
 				Expression:  b.Condition.Expression,
@@ -125,7 +125,7 @@ func bindingsToProto(bindings []BindingConfig) []*iampb.Binding { //nolint:stati
 				Description: b.Condition.Description,
 			}
 		}
-		
+
 		result[i] = binding
 	}
 	return result
@@ -135,20 +135,20 @@ func auditConfigsToProto(configs []AuditConfigYAML) []*iampb.AuditConfig { //nol
 	if len(configs) == 0 {
 		return nil
 	}
-	
+
 	result := make([]*iampb.AuditConfig, len(configs)) //nolint:staticcheck // Using standard genproto package
 	for i, cfg := range configs {
 		auditConfig := &iampb.AuditConfig{ //nolint:staticcheck // Using standard genproto package
 			Service: cfg.Service,
 		}
-		
+
 		for _, logCfg := range cfg.AuditLogConfigs {
 			auditConfig.AuditLogConfigs = append(auditConfig.AuditLogConfigs, &iampb.AuditLogConfig{ //nolint:staticcheck // Using standard genproto package
 				LogType:         iampb.AuditLogConfig_LogType(iampb.AuditLogConfig_LogType_value[logCfg.LogType]),
 				ExemptedMembers: logCfg.ExemptedMembers,
 			})
 		}
-		
+
 		result[i] = auditConfig
 	}
 	return result

@@ -48,7 +48,7 @@ func evalStartsWith(expr, resourceName string) (bool, string) {
 
 	prefix := expr[start+1 : end]
 	result := strings.HasPrefix(resourceName, prefix)
-	
+
 	if result {
 		return true, fmt.Sprintf("resource.name '%s' starts with '%s'", resourceName, prefix)
 	}

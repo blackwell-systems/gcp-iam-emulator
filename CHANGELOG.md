@@ -7,13 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **REST gateway migrated from hand-rolled HTTP to grpc-gateway v2** — HTTP handlers are now auto-generated from the IAM proto definitions, ensuring full API compatibility with real GCP
+- REST gateway now returns correct HTTP status codes and structured GCP-format error responses
+- Malformed JSON request bodies now return 400 instead of being silently accepted
+
 ### Added
 - `Register()` composition hook for unified `gcp-emulator`
   - Accepts `WithPolicyFile`, `WithTrace`, `WithAllowUnknownRoles` options
+- `NewGatewayHandler()` for mounting IAM REST gateway in unified HTTP server
+- `buf.gen.yaml` for reproducible grpc-gateway stub generation
+- `/healthz`, `/readyz`, `/health` endpoints on REST gateway
+- `jsonErrorHandler` returns clean 400 for malformed JSON bodies
 
 ### Fixed
 - `Register()` no longer calls `reflection.Register`, preventing fatal duplicate registration when composing multiple emulators on one gRPC server
-  - Registers IAM gRPC service on an existing `*grpc.Server`
+
+### Removed
+- Hand-rolled HTTP REST gateway (208 lines, replaced by ~80 lines of grpc-gateway wiring)
 
 ## [0.8.0] - 2026-01-28
 

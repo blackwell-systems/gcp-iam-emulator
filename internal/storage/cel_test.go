@@ -102,28 +102,28 @@ func TestEvaluateCondition_RequestTime(t *testing.T) {
 	past := "2026-01-01T00:00:00Z"
 
 	tests := []struct {
-		name       string
-		expression string
+		name        string
+		expression  string
 		requestTime time.Time
-		expected   bool
+		expected    bool
 	}{
 		{
-			name:       "time before future",
-			expression: fmt.Sprintf(`request.time < timestamp("%s")`, future),
+			name:        "time before future",
+			expression:  fmt.Sprintf(`request.time < timestamp("%s")`, future),
 			requestTime: now,
-			expected:   true,
+			expected:    true,
 		},
 		{
-			name:       "time after past",
-			expression: fmt.Sprintf(`request.time > timestamp("%s")`, past),
+			name:        "time after past",
+			expression:  fmt.Sprintf(`request.time > timestamp("%s")`, past),
 			requestTime: now,
-			expected:   true,
+			expected:    true,
 		},
 		{
-			name:       "time after future (should fail)",
-			expression: fmt.Sprintf(`request.time < timestamp("%s")`, past),
+			name:        "time after future (should fail)",
+			expression:  fmt.Sprintf(`request.time < timestamp("%s")`, past),
 			requestTime: now,
-			expected:   false,
+			expected:    false,
 		},
 	}
 
