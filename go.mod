@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	github.com/blackwell-systems/gcp-emulator-auth v0.3.0
+	github.com/blackwell-systems/gcp-emulator-auth v0.4.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.28.0
 )
 
